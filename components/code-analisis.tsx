@@ -98,10 +98,10 @@ export default function CodeAnalysis({ code, markers, language }: CodeAnalysisPr
               <CardContent>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <StatCard title="Lines of Code" value={stats.lines.toString()} />
-                    <StatCard title="Characters" value={stats.chars.toString()} />
-                    <StatCard title="Words" value={stats.words.toString()} />
-                    <StatCard title="Functions" value={stats.functions.toString()} />
+                    <StatCard title="Lineas de codigo" value={stats.lines.toString()} />
+                    <StatCard title="Caracteres" value={stats.chars.toString()} />
+                    <StatCard title="Palabras" value={stats.words.toString()} />
+                    <StatCard title="Funciones" value={stats.functions.toString()} />
                   </div>
                   
                   <Separator />

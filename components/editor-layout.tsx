@@ -16,26 +16,26 @@ export default function EditorLayout() {
   const handleCodeChange = (value: string | undefined) => {
     setCode(value || '');
     
-    // Simple demonstration of analysis - in a real app, you'd use a parser
+    // demo de analisis de codigo
     const newMarkers = [];
     
-    // Example: Check for console.log statements
+    // ejemplo de verificacion de console.log
     const consoleLogRegex = /console\.log\(/g;
     let match;
     while ((match = consoleLogRegex.exec(value || '')) !== null) {
       newMarkers.push({
-        type: 'warning',
-        message: 'Console statements should be removed in production code',
+        type: 'Peligro',
+        message: 'console.log encontrado en el codigo ',
         position: match.index,
       });
     }
     
-    // Example: Check for TODO comments
+    // ejemplo de verificacion de comentarios TODO
     const todoRegex = /\/\/\s*TODO/gi;
     while ((match = todoRegex.exec(value || '')) !== null) {
       newMarkers.push({
         type: 'info',
-        message: 'TODO comment found',
+        message: 'comentario TODO encontrado',
         position: match.index,
       });
     }
