@@ -35,8 +35,8 @@ export default function Header({
       <div className="flex items-center space-x-3">
         <Cpu className="h-7 w-7 text-primary" />
         <div>
-          <h1 className="font-bold text-xl text-primary">CompilerPro</h1>
-          <p className="text-xs text-muted-foreground">Analizador de Código Inteligente</p>
+          <h1 className="font-bold text-xl text-primary">Compilador</h1>
+          <p className="text-xs text-muted-foreground">Grupo chiludo</p>
         </div>
       </div>
       

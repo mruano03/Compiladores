@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const firaCode = Fira_Code({ subsets: ['latin'], variable: '--font-fira-code' });
 
 export const metadata: Metadata = {
-  title: 'CompilerPro - Analizador de Código Inteligente',
+  title: 'Compilador - Proyecto en grupo',
   description: 'Compilador avanzado para análisis léxico, sintáctico y semántico de múltiples lenguajes de programación',
 };
 
