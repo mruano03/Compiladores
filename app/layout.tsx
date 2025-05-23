@@ -3,12 +3,14 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Fira_Code } from 'next/font/google';
 import { Providers } from '@/components/provider';
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const firaCode = Fira_Code({ subsets: ['latin'], variable: '--font-fira-code' });
 
 export const metadata: Metadata = {
-  title: 'Compilador',
+  title: 'CompilerPro - Analizador de Código Inteligente',
+  description: 'Compilador avanzado para análisis léxico, sintáctico y semántico de múltiples lenguajes de programación',
 };
 
 export default function RootLayout({
@@ -17,9 +19,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <body className={`${inter.variable} ${firaCode.variable} font-sans`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <Toaster />
+        </Providers>
       </body>
     </html>
   );
