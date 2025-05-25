@@ -182,8 +182,12 @@ export class LexicalAnalyzer {
   public analyze(): { tokens: LexicalToken[], errors: LexicalError[] } {
     this.reset();
     
-    while (this.position < this.code.length) {
+    let iterations = 0;
+    const maxIterations = this.code.length * 2; // Safety limit
+    
+    while (this.position < this.code.length && iterations < maxIterations) {
       const char = this.code[this.position];
+      const previousPosition = this.position;
       
       // Saltar espacios en blanco
       if (this.isWhitespace(char)) {
@@ -209,6 +213,19 @@ export class LexicalAnalyzer {
         this.position++;
         this.column++;
       }
+      
+      // Safety check: ensure position is advancing
+      if (this.position === previousPosition) {
+        this.addError(`Error interno: posición no avanza en '${char}'`, char);
+        this.position++; // Force advancement to prevent infinite loop
+        this.column++;
+      }
+      
+      iterations++;
+    }
+    
+    if (iterations >= maxIterations) {
+      this.addError('Análisis léxico detenido por seguridad (posible bucle infinito)', this.code[this.position] || '');
     }
     
     return {

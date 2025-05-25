@@ -37,8 +37,15 @@ export default function CodeAnalysis({ code, markers, language }: CodeAnalysisPr
   
   // Usar el nuevo analizador completo mejorado
   const compilerResult = useMemo(() => {
-    if (!code.trim()) return null;
-    return analyzeCodeEnhanced(code, language);
+    // Evitar análisis innecesario en código vacío o muy pequeño
+    if (!code.trim() || code.trim().length < 3) return null;
+    
+    try {
+      return analyzeCodeEnhanced(code, language);
+    } catch (error) {
+      console.error('Error en análisis de código:', error);
+      return null;
+    }
   }, [code, language]);
 
   const getErrorIcon = (type: string) => {

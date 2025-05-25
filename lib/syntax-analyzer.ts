@@ -207,11 +207,27 @@ export class SyntaxAnalyzer {
   }
 
   private parseJavaScriptProgram(): void {
-    while (this.position < this.tokens.length) {
+    let iterations = 0;
+    const maxIterations = this.tokens.length * 2; // Safety limit
+    
+    while (this.position < this.tokens.length && iterations < maxIterations) {
+      const previousPosition = this.position;
       const statement = this.parseJavaScriptStatement();
+      
       if (statement) {
         this.parseTree.push(statement);
       }
+      
+      // Safety check: ensure position is advancing
+      if (this.position === previousPosition) {
+        this.position++; // Force advancement to prevent infinite loop
+      }
+      
+      iterations++;
+    }
+    
+    if (iterations >= maxIterations) {
+      this.addError('Análisis sintáctico detenido por seguridad (posible bucle infinito)', 'warning');
     }
   }
 
@@ -243,11 +259,27 @@ export class SyntaxAnalyzer {
     // Verificar indentación correcta
     this.checkPythonIndentation();
     
-    while (this.position < this.tokens.length) {
+    let iterations = 0;
+    const maxIterations = this.tokens.length * 2; // Safety limit
+    
+    while (this.position < this.tokens.length && iterations < maxIterations) {
+      const previousPosition = this.position;
       const statement = this.parsePythonStatement();
+      
       if (statement) {
         this.parseTree.push(statement);
       }
+      
+      // Safety check: ensure position is advancing
+      if (this.position === previousPosition) {
+        this.position++; // Force advancement to prevent infinite loop
+      }
+      
+      iterations++;
+    }
+    
+    if (iterations >= maxIterations) {
+      this.addError('Análisis sintáctico detenido por seguridad (posible bucle infinito)', 'warning');
     }
   }
 
@@ -278,11 +310,27 @@ export class SyntaxAnalyzer {
     // Verificar directivas de preprocesador
     this.checkCppIncludes();
     
-    while (this.position < this.tokens.length) {
+    let iterations = 0;
+    const maxIterations = this.tokens.length * 2; // Safety limit
+    
+    while (this.position < this.tokens.length && iterations < maxIterations) {
+      const previousPosition = this.position;
       const statement = this.parseCppStatement();
+      
       if (statement) {
         this.parseTree.push(statement);
       }
+      
+      // Safety check: ensure position is advancing
+      if (this.position === previousPosition) {
+        this.position++; // Force advancement to prevent infinite loop
+      }
+      
+      iterations++;
+    }
+    
+    if (iterations >= maxIterations) {
+      this.addError('Análisis sintáctico detenido por seguridad (posible bucle infinito)', 'warning');
     }
     
     // Verificar que existe función main
@@ -316,11 +364,27 @@ export class SyntaxAnalyzer {
   }
 
   private parseHtmlDocument(): void {
-    while (this.position < this.tokens.length) {
+    let iterations = 0;
+    const maxIterations = this.tokens.length * 2; // Safety limit
+    
+    while (this.position < this.tokens.length && iterations < maxIterations) {
+      const previousPosition = this.position;
       const element = this.parseHtmlElement();
+      
       if (element) {
         this.parseTree.push(element);
       }
+      
+      // Safety check: ensure position is advancing
+      if (this.position === previousPosition) {
+        this.position++; // Force advancement to prevent infinite loop
+      }
+      
+      iterations++;
+    }
+    
+    if (iterations >= maxIterations) {
+      this.addError('Análisis HTML detenido por seguridad (posible bucle infinito)', 'warning');
     }
     
     // Verificar estructura básica de HTML
@@ -344,11 +408,27 @@ export class SyntaxAnalyzer {
     }
     
     // Continuar con el resto del programa
-    while (this.position < this.tokens.length) {
+    let iterations = 0;
+    const maxIterations = this.tokens.length * 2; // Safety limit
+    
+    while (this.position < this.tokens.length && iterations < maxIterations) {
+      const previousPosition = this.position;
       const statement = this.parsePascalStatement();
+      
       if (statement) {
         this.parseTree.push(statement);
       }
+      
+      // Safety check: ensure position is advancing
+      if (this.position === previousPosition) {
+        this.position++; // Force advancement to prevent infinite loop
+      }
+      
+      iterations++;
+    }
+    
+    if (iterations >= maxIterations) {
+      this.addError('Análisis Pascal detenido por seguridad (posible bucle infinito)', 'warning');
     }
     
     // Verificar BEGIN/END balanceados
@@ -380,11 +460,27 @@ export class SyntaxAnalyzer {
   }
 
   private parseSqlProgram(): void {
-    while (this.position < this.tokens.length) {
+    let iterations = 0;
+    const maxIterations = this.tokens.length * 2; // Safety limit
+    
+    while (this.position < this.tokens.length && iterations < maxIterations) {
+      const previousPosition = this.position;
       const statement = this.parseSqlStatement();
+      
       if (statement) {
         this.parseTree.push(statement);
       }
+      
+      // Safety check: ensure position is advancing
+      if (this.position === previousPosition) {
+        this.position++; // Force advancement to prevent infinite loop
+      }
+      
+      iterations++;
+    }
+    
+    if (iterations >= maxIterations) {
+      this.addError('Análisis SQL detenido por seguridad (posible bucle infinito)', 'warning');
     }
   }
 
@@ -420,8 +516,12 @@ export class SyntaxAnalyzer {
     // Análisis sintáctico genérico
     this.checkBalancedSymbols();
     
-    while (this.position < this.tokens.length) {
+    let iterations = 0;
+    const maxIterations = this.tokens.length;
+    
+    while (this.position < this.tokens.length && iterations < maxIterations) {
       this.position++;
+      iterations++;
     }
   }
 
@@ -567,7 +667,10 @@ export class SyntaxAnalyzer {
     // Implementación simplificada de expresiones
     const node = this.createNode('Expression');
     
-    while (this.position < this.tokens.length) {
+    let iterations = 0;
+    const maxIterations = this.tokens.length;
+    
+    while (this.position < this.tokens.length && iterations < maxIterations) {
       const token = this.getCurrentToken();
       if (!token) break;
       
@@ -578,6 +681,7 @@ export class SyntaxAnalyzer {
       
       node.children.push(this.createLeafNode(token));
       this.position++;
+      iterations++;
     }
     
     return node.children.length > 0 ? node : null;
