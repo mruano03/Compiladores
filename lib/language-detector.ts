@@ -79,35 +79,45 @@ const LANGUAGE_SIGNATURES: { [key: string]: LanguageSignature } = {
     weight: 1
   },
   
-  'PL/SQL': {
-    keywords: ['SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'TABLE', 'DECLARE', 'BEGIN', 'END', 'PROCEDURE'],
+  sql: {
+    keywords: ['SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'JOIN'],
     patterns: [
-      /CREATE\s+(TABLE|PROCEDURE|FUNCTION)/i,
       /SELECT\s+.*\s+FROM/i,
       /INSERT\s+INTO/i,
       /UPDATE\s+.*\s+SET/i,
       /DELETE\s+FROM/i,
+      /CREATE\s+TABLE/i,
+      /ALTER\s+TABLE/i,
+      /DROP\s+TABLE/i,
+      /JOIN\s+/i
+    ],
+    fileExtensions: ['sql'],
+    weight: 1
+  },
+  
+  'PL/SQL': {
+    keywords: ['DECLARE', 'BEGIN', 'END', 'PROCEDURE', 'FUNCTION', 'CURSOR', 'EXCEPTION'],
+    patterns: [
       /DECLARE\s*$/m,
       /BEGIN\s*$/m,
-      /END\s*[;/]/
+      /END\s*[;/]/,
+      /PROCEDURE\s+\w+/i,
+      /FUNCTION\s+\w+/i
     ],
-    fileExtensions: ['sql', 'plsql'],
+    fileExtensions: ['plsql'],
     weight: 1
   },
   
   'T-SQL': {
-    keywords: ['SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'TABLE', 'DECLARE', 'BEGIN', 'END', 'GO'],
+    keywords: ['GO', 'PRINT', 'TRY', 'CATCH', 'TRAN', 'IDENTITY', 'NVARCHAR'],
     patterns: [
-      /CREATE\s+(TABLE|PROCEDURE|FUNCTION)/i,
-      /SELECT\s+.*\s+FROM/i,
-      /INSERT\s+INTO/i,
-      /UPDATE\s+.*\s+SET/i,
-      /DELETE\s+FROM/i,
-      /DECLARE\s+@\w+/,
       /GO\s*$/m,
-      /\[dbo\]\./
+      /PRINT\s+/i,
+      /TRY\s*{/i,
+      /CATCH\s*{/i,
+      /IDENTITY\s*\(/i
     ],
-    fileExtensions: ['sql', 'tsql'],
+    fileExtensions: ['tsql'],
     weight: 1
   }
 };
@@ -258,4 +268,4 @@ export function detectLanguage(code: string, fileName?: string): string {
 
 export function getLanguageInfo(code: string, fileName?: string) {
   return LanguageDetector.getDetectionInfo(code, fileName);
-} 
+}

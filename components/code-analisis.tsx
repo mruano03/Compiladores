@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 // Usar el nuevo analizador mejorado
-import { analyzeCodeEnhanced } from '@/lib/enhanced-compiler-analyzer';
+import { analyzeCodeEnhanced } from '@/lib/compiler-analyzer';
 import { useMemo } from 'react';
 
 interface CodeAnalysisProps {

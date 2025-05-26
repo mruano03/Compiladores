@@ -928,4 +928,136 @@ export class SemanticAnalyzer {
       severity
     });
   }
-} 
+
+  findSymbolInScope(name: string, scope: Scope): SymbolTableEntry | undefined {
+    let symbol = scope.symbols.get(name);
+    if (symbol) return symbol;
+    if (scope.parent) {
+      return this.findSymbolInScope(name, scope.parent);
+    }
+    return undefined;
+  }
+
+  analyzePythonExpression(node: ParseNode, scope: Scope): TypeInfo {
+    switch (node.type) {
+      case 'NUMERO':
+        return { baseType: 'number' };
+      case 'IDENTIFICADOR': {
+        let symbol = this.findSymbolInScope(node.value!, scope);
+        if (!symbol) {
+          // En Python, crear variable al primer uso
+          symbol = {
+            name: node.value!,
+            type: 'variable',
+            dataType: 'dynamic',
+            scope: scope.name,
+            line: node.line,
+            column: node.column,
+            isInitialized: true,
+            isUsed: true
+          };
+          scope.symbols.set(node.value!, symbol);
+        }
+        return { baseType: symbol.dataType || 'dynamic' };
+      }
+      case 'functionCall':
+        return this.analyzePythonFunctionCall(node, scope);
+      default:
+        return { baseType: 'dynamic' };
+    }
+  }
+
+  analyzePythonFunctionCall(node: ParseNode, scope: Scope): TypeInfo {
+    const funcName = node.children[0].value;
+    let func = this.findSymbolInScope(funcName!, scope);
+    if (!func) {
+      // Permitir llamadas a funciones al primer uso (recursividad o built-in)
+      func = {
+        name: funcName!,
+        type: 'function',
+        scope: scope.name,
+        line: node.line,
+        column: node.column,
+        parameters: [],
+        returnType: 'dynamic'
+      };
+      scope.symbols.set(funcName!, func);
+    }
+    return { baseType: func.returnType || 'dynamic' };
+  }
+  
+  analyzePythonStatement(node: ParseNode, scope: Scope): void {
+    switch (node.type) {
+      case 'assignmentStatement':
+        this.analyzePythonAssignment(node, scope);
+        break;
+      case 'ifStatement':
+        this.analyzePythonIfStatement(node, scope);
+        break;
+      case 'functionCall':
+        this.analyzePythonFunctionCall(node, scope);
+        break;
+      default:
+        // Analizar otros tipos de declaraciones
+        this.analyzePythonExpression(node, scope);
+    }
+  }
+  
+  analyzePythonAssignment(node: ParseNode, scope: Scope): void {
+    const targetName = node.children[0].value;
+    const valueType = this.analyzePythonExpression(node.children[1], scope);
+    
+    // En Python, las variables se crean al asignarles un valor
+    let symbol = this.findSymbolInScope(targetName!, scope);
+    if (!symbol) {
+      symbol = {
+        name: targetName!,
+        type: 'variable',
+        dataType: valueType.baseType,
+        scope: scope.name,
+        line: node.line,
+        column: node.column,
+        isInitialized: true,
+        isUsed: false
+      };
+      scope.symbols.set(targetName!, symbol);
+    } else {
+      // Actualizar el tipo si es necesario (tipado dinámico)
+      symbol.dataType = valueType.baseType;
+      symbol.isInitialized = true;
+    }
+  }
+  
+  analyzePythonIfStatement(node: ParseNode, scope: Scope): void {
+    // Analizar la condición
+    this.analyzePythonExpression(node.children[0], scope);
+    
+    // Analizar el bloque then
+    const thenScope: Scope = {
+      name: scope.name + '_if',
+      parent: scope,
+      symbols: new Map(),
+      functions: new Map(),
+      level: scope.level + 1
+    };
+    this.analyzePythonBlock(node.children[1], thenScope);
+    
+    // Analizar el bloque else si existe
+    if (node.children[2]) {
+      const elseScope: Scope = {
+        name: scope.name + '_else',
+        parent: scope,
+        symbols: new Map(),
+        functions: new Map(),
+        level: scope.level + 1
+      };
+      this.analyzePythonBlock(node.children[2], elseScope);
+    }
+  }
+  
+  analyzePythonBlock(node: ParseNode, scope: Scope): void {
+    node.children.forEach(child => {
+      this.analyzePythonStatement(child, scope);
+    });
+  }
+}

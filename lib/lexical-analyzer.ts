@@ -81,6 +81,10 @@ export const LEXICAL_PATTERNS = {
 
   // Salto de línea
   NEWLINE: /^\n$/,
+
+  // Patrones específicos de Python
+  PYTHON_INDENT: /^[ ]{4}|^\t/,
+  PYTHON_DEDENT: /^$/,
 };
 
 // Palabras reservadas expandidas por lenguaje
@@ -540,4 +544,4 @@ export class LexicalAnalyzer {
       token
     });
   }
-} 
+}

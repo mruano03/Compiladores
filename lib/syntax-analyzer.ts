@@ -57,20 +57,47 @@ export const SYNTAX_RULES = {
     ]
   },
   python: {
-    // Declaraciones de funciones
-    functionDeclaration: [
-      ['PALABRA_RESERVADA:def', 'IDENTIFICADOR', 'PARENTESIS_ABIERTO', 'parameterList?', 'PARENTESIS_CERRADO', 'DOS_PUNTOS', 'NEWLINE', 'INDENT', 'statements', 'DEDENT']
+    // Declaración de funciones
+    functionDefinition: [
+      ['PALABRA_RESERVADA:def', 'IDENTIFICADOR', 'PARENTESIS_ABIERTO', 'parameterList?', 'PARENTESIS_CERRADO', 'DOS_PUNTOS', 'NUEVA_LINEA', 'INDENTACION', 'statements', 'DEDENTACION']
     ],
     // Estructuras de control
     ifStatement: [
-      ['PALABRA_RESERVADA:if', 'expression', 'DOS_PUNTOS', 'NEWLINE', 'INDENT', 'statements', 'DEDENT'],
-      ['PALABRA_RESERVADA:if', 'expression', 'DOS_PUNTOS', 'NEWLINE', 'INDENT', 'statements', 'DEDENT', 'PALABRA_RESERVADA:else', 'DOS_PUNTOS', 'NEWLINE', 'INDENT', 'statements', 'DEDENT']
+      ['PALABRA_RESERVADA:if', 'expression', 'DOS_PUNTOS', 'NUEVA_LINEA', 'INDENTACION', 'statements', 'DEDENTACION'],
+      ['PALABRA_RESERVADA:if', 'expression', 'DOS_PUNTOS', 'NUEVA_LINEA', 'INDENTACION', 'statements', 'DEDENTACION', 'PALABRA_RESERVADA:else', 'DOS_PUNTOS', 'NUEVA_LINEA', 'INDENTACION', 'statements', 'DEDENTACION']
     ],
-    forStatement: [
-      ['PALABRA_RESERVADA:for', 'IDENTIFICADOR', 'PALABRA_RESERVADA:in', 'expression', 'DOS_PUNTOS', 'NEWLINE', 'INDENT', 'statements', 'DEDENT']
+    // Expresiones de retorno
+    returnStatement: [
+      ['PALABRA_RESERVADA:return', 'expression'],
+      ['PALABRA_RESERVADA:return']
     ],
-    whileStatement: [
-      ['PALABRA_RESERVADA:while', 'expression', 'DOS_PUNTOS', 'NEWLINE', 'INDENT', 'statements', 'DEDENT']
+    // Expresiones de impresión
+    printStatement: [
+      ['PALABRA_RESERVADA:print', 'PARENTESIS_ABIERTO', 'expression', 'PARENTESIS_CERRADO']
+    ],
+    // Expresiones numéricas y operadores
+    expression: [
+      ['term'],
+      ['expression', 'OPERADOR_ARITMETICO', 'term'],
+      ['expression', 'OPERADOR_COMPARACION', 'term']
+    ],
+    term: [
+      ['factor'],
+      ['term', 'OPERADOR_MULTIPLICATIVO', 'factor']
+    ],
+    factor: [
+      ['NUMERO'],
+      ['IDENTIFICADOR'],
+      ['PARENTESIS_ABIERTO', 'expression', 'PARENTESIS_CERRADO'],
+      ['IDENTIFICADOR', 'PARENTESIS_ABIERTO', 'argumentList?', 'PARENTESIS_CERRADO']
+    ],
+    // Llamadas a funciones
+    functionCall: [
+      ['IDENTIFICADOR', 'PARENTESIS_ABIERTO', 'argumentList?', 'PARENTESIS_CERRADO']
+    ],
+    argumentList: [
+      ['expression'],
+      ['argumentList', 'COMA', 'expression']
     ]
   },
   'c++': {
@@ -976,4 +1003,4 @@ export class SyntaxAnalyzer {
   private parseDeclareStatement(): ParseNode | null {
     return this.createNode('DeclareStatement');
   }
-} 
+}
