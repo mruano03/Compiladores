@@ -6,8 +6,10 @@ import CodeAnalysis from '@/components/code-analisis';
 import Header from '@/components/headert';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { defaultCode } from '@/lib/constants';
 import { detectLanguage, getLanguageInfo } from '@/lib/language-detector';
+import { Play, Square } from 'lucide-react';
 
 export default function EditorLayout() {
   const [code, setCode] = useState(defaultCode);
@@ -16,6 +18,8 @@ export default function EditorLayout() {
   const [markers, setMarkers] = useState<any[]>([]);
   const [currentFile, setCurrentFile] = useState<string | undefined>(undefined);
   const [languageDetectionInfo, setLanguageDetectionInfo] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [shouldAnalyze, setShouldAnalyze] = useState(false);
 
   // Función para detectar el lenguaje automáticamente basado en el nombre del archivo
   const detectLanguageFromFile = (fileName: string): string => {
@@ -47,42 +51,49 @@ export default function EditorLayout() {
   const handleCodeChange = (value: string | undefined) => {
     setCode(value || '');
     
-    // Detectar lenguaje automáticamente basado en el contenido
+    // Solo detectar lenguaje automáticamente basado en el contenido
     if (value && value.trim()) {
       const detectionInfo = getLanguageInfo(value, currentFile);
       setLanguageDetectionInfo(detectionInfo);
       
-      // Solo cambiar automáticamente si la confianza es alta (>5) y es diferente al actual
-      if (detectionInfo.confidence > 5 && detectionInfo.detectedLanguage !== language) {
-        setLanguage(detectionInfo.detectedLanguage);
+      // Mejorar la lógica de detección automática
+      const detectedLanguage = detectionInfo.detectedLanguage;
+      
+      if (
+        (detectionInfo.confidence > 5) ||
+        (detectionInfo.confidence > 3 && detectedLanguage !== language && detectedLanguage !== 'javascript') ||
+        (detectionInfo.confidence > 2 && ['html', 'sql', 'T-SQL', 'PL/SQL', 'Pascal'].includes(detectedLanguage))
+      ) {
+        setLanguage(detectedLanguage);
       }
+    } else {
+      // Limpiar información de detección si no hay código
+      setLanguageDetectionInfo(null);
     }
     
-    // Demo de análisis de código básico (mantener para compatibilidad)
-    const newMarkers = [];
+    // NO ejecutar análisis automático - solo limpiar marcadores previos
+    setMarkers([]);
+    setShouldAnalyze(false); // Resetear flag de análisis
+  };
+
+  // Nueva función para ejecutar el compilador manualmente
+  const handleRunCompiler = async () => {
+    if (!code.trim()) return;
     
-    // Ejemplo de verificación de console.log
-    const consoleLogRegex = /console\.log\(/g;
-    let match;
-    while ((match = consoleLogRegex.exec(value || '')) !== null) {
-      newMarkers.push({
-        type: 'warning',
-        message: 'console.log encontrado en el código',
-        position: match.index,
-      });
-    }
+    setIsAnalyzing(true);
+    setShouldAnalyze(true);
     
-    // Ejemplo de verificación de comentarios TODO
-    const todoRegex = /\/\/\s*TODO/gi;
-    while ((match = todoRegex.exec(value || '')) !== null) {
-      newMarkers.push({
-        type: 'info', 
-        message: 'Comentario TODO encontrado',
-        position: match.index,
-      });
-    }
-    
-    setMarkers(newMarkers);
+    // Simular un pequeño delay para mostrar que está analizando
+    setTimeout(() => {
+      setIsAnalyzing(false);
+    }, 500);
+  };
+
+  // Función para detener el análisis
+  const handleStopAnalysis = () => {
+    setIsAnalyzing(false);
+    setShouldAnalyze(false);
+    setMarkers([]);
   };
 
   // Función para manejar la carga de código desde archivos
@@ -94,11 +105,32 @@ export default function EditorLayout() {
     const detectedLanguage = detectLanguage(newCode, fileName);
     const detectionInfo = getLanguageInfo(newCode, fileName);
     
-    setLanguage(detectedLanguage);
+    // Siempre actualizar la información de detección
     setLanguageDetectionInfo(detectionInfo);
     
-    // Actualizar markers para el nuevo código
-    handleCodeChange(newCode);
+    // Para archivos cargados, ser más agresivo en la detección:
+    // 1. Si hay nombre de archivo, usar la extensión principalmente
+    // 2. Si la confianza del contenido es alta, usar esa detección
+    // 3. Fallback al detector principal
+    let finalLanguage = detectedLanguage;
+    
+    if (fileName) {
+      const extensionLanguage = detectLanguageFromFile(fileName);
+      if (extensionLanguage !== language) {
+        finalLanguage = extensionLanguage;
+      }
+    }
+    
+    // Si el detector de contenido tiene alta confianza, usar esa detección
+    if (detectionInfo.confidence > 7) {
+      finalLanguage = detectionInfo.detectedLanguage;
+    }
+    
+    setLanguage(finalLanguage);
+    
+    // NO ejecutar análisis automático al cargar archivos
+    setMarkers([]);
+    setShouldAnalyze(false);
   };
 
   return (
@@ -116,45 +148,61 @@ export default function EditorLayout() {
       >
         <ResizablePanel defaultSize={60} minSize={30}>
           <div className="h-full flex flex-col">
-            {/* Mostrar información del archivo actual */}
-            {(currentFile || languageDetectionInfo) && (
-              <div className="px-4 py-2 bg-muted/30 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {currentFile && (
-                      <span className="text-sm text-muted-foreground">
-                        📁 {currentFile}
-                      </span>
-                    )}
-                    <Badge variant="secondary" className="text-xs">
-                      {language}
-                    </Badge>
-                  </div>
+            {/* Barra de control del compilador */}
+            <div className="px-4 py-3 bg-muted/30 border-b border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {currentFile && (
+                    <span className="text-sm text-muted-foreground">
+                      📁 {currentFile}
+                    </span>
+                  )}
+                  <Badge variant="secondary" className="text-xs">
+                    {language}
+                  </Badge>
                   
-                  {languageDetectionInfo && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        Confianza: {languageDetectionInfo.confidence}
-                      </span>
-                      {languageDetectionInfo.alternatives.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          | Alternativas: {languageDetectionInfo.alternatives.slice(0, 2).map((alt: any) => alt.language).join(', ')}
-                        </span>
-                      )}
-                    </div>
+                  {/* Mostrar advertencia si la detección no es muy confiable */}
+                  {languageDetectionInfo && languageDetectionInfo.confidence < 3 && languageDetectionInfo.confidence > 0 && (
+                    <Badge variant="outline" className="text-xs text-yellow-600">
+                      ⚠️ Detección incierta
+                    </Badge>
                   )}
                 </div>
                 
-                {/* Mostrar advertencia si la detección no es muy confiable */}
-                {languageDetectionInfo && languageDetectionInfo.confidence < 3 && languageDetectionInfo.confidence > 0 && (
-                  <div className="mt-1">
-                    <Badge variant="outline" className="text-xs text-yellow-600">
-                      ⚠️ Detección incierta - Verifica el lenguaje seleccionado
-                    </Badge>
-                  </div>
-                )}
+                {/* Botones de control del compilador */}
+                <div className="flex items-center gap-2">
+                  {isAnalyzing ? (
+                    <Button 
+                      size="sm" 
+                      variant="destructive"
+                      onClick={handleStopAnalysis}
+                      disabled={!isAnalyzing}
+                    >
+                      <Square className="h-3 w-3 mr-1" />
+                      Detener
+                    </Button>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      onClick={handleRunCompiler}
+                      disabled={!code.trim() || isAnalyzing}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Play className="h-3 w-3 mr-1" />
+                      Ejecutar Compilador
+                    </Button>
+                  )}
+                </div>
               </div>
-            )}
+              
+              {/* Estado del análisis */}
+              {isAnalyzing && (
+                <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                  Analizando código...
+                </div>
+              )}
+            </div>
             <CodeEditor 
               value={code} 
               onChange={handleCodeChange} 
@@ -168,7 +216,9 @@ export default function EditorLayout() {
           <CodeAnalysis 
             code={code} 
             markers={markers} 
-            language={language} 
+            language={language}
+            shouldAnalyze={shouldAnalyze}
+            isAnalyzing={isAnalyzing}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

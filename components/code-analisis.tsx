@@ -31,22 +31,45 @@ interface CodeAnalysisProps {
   code: string;
   markers: any[];
   language: string;
+  shouldAnalyze?: boolean;
+  isAnalyzing?: boolean;
 }
 
-export default function CodeAnalysis({ code, markers, language }: CodeAnalysisProps) {
+export default function CodeAnalysis({ code, markers, language, shouldAnalyze = false, isAnalyzing = false }: CodeAnalysisProps) {
   
   // Usar el nuevo analizador completo mejorado
   const compilerResult = useMemo(() => {
-    // Evitar análisis innecesario en código vacío o muy pequeño
-    if (!code.trim() || code.trim().length < 3) return null;
+    // Solo analizar si se solicita explícitamente y hay código
+    if (!shouldAnalyze || !code.trim() || code.trim().length < 1) return null;
     
     try {
       return analyzeCodeEnhanced(code, language);
     } catch (error) {
       console.error('Error en análisis de código:', error);
-      return null;
+      
+      // Retornar un resultado básico en caso de error
+      return {
+        language: language,
+        tokens: [],
+        parseTree: [],
+        symbolTable: [],
+        errors: [{
+          type: 'semantico' as const,
+          message: `Error crítico en el análisis: ${error}`,
+          line: 1,
+          column: 1,
+          position: 0,
+          severity: 'error' as const
+        }],
+        canExecute: false,
+        analysisPhases: {
+          lexical: { completed: false, tokensFound: 0, errorsFound: 1 },
+          syntax: { completed: false, nodesGenerated: 0, errorsFound: 0 },
+          semantic: { completed: false, symbolsFound: 0, errorsFound: 1 }
+        }
+      };
     }
-  }, [code, language]);
+  }, [code, language, shouldAnalyze]);
 
   const getErrorIcon = (type: string) => {
     switch (type) {
@@ -103,7 +126,7 @@ export default function CodeAnalysis({ code, markers, language }: CodeAnalysisPr
                   Análisis del Compilador
                 </CardTitle>
                 <CardDescription>
-                  Lenguaje detectado: {compilerResult?.language || language} | Estado: {' '}
+                  Lenguaje detectado: {compilerResult?.language === 'unknown' ? 'No determinado' : (compilerResult?.language || language)} | Estado: {' '}
                   {compilerResult?.canExecute ? (
                     <span className="text-green-600 font-medium">✅ Listo para ejecutar</span>
                   ) : (
@@ -114,8 +137,22 @@ export default function CodeAnalysis({ code, markers, language }: CodeAnalysisPr
               <CardContent>
                 {!compilerResult ? (
                   <div className="flex items-center justify-center py-6 text-muted-foreground">
-                    <Code2 className="h-5 w-5 mr-2" />
-                    Escribe código para comenzar el análisis
+                    {isAnalyzing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
+                        Analizando código...
+                      </>
+                    ) : code.trim() ? (
+                      <>
+                        <Play className="h-5 w-5 mr-2" />
+                        Presiona "Ejecutar Compilador" para analizar el código
+                      </>
+                    ) : (
+                      <>
+                        <Code2 className="h-5 w-5 mr-2" />
+                        Escribe código para comenzar el análisis
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-6">

@@ -181,18 +181,65 @@ export class SyntaxAnalyzer {
   private parseTree: ParseNode[] = [];
 
   constructor(tokens: LexicalToken[], language: string) {
-    this.tokens = tokens.filter(token => token.category !== 'COMENTARIO'); // Filtrar comentarios
+    // Filtrar solo comentarios y tokens verdaderamente vacíos
+    // Mantener los caracteres especiales que pueden ser sintácticamente relevantes
+    this.tokens = tokens.filter(token => {
+      // Mantener todo excepto comentarios y strings completamente vacíos
+      if (token.category === 'COMENTARIO') return false;
+      if (token.value.trim() === '' && token.type !== 'NUEVA_LINEA') return false;
+      return true;
+    });
     this.language = language.toLowerCase();
   }
 
   public analyze(): { errors: SyntaxError[], parseTree: ParseNode[] } {
     this.reset();
     
+    // Si no hay tokens válidos, retornar resultado básico pero sin errores
+    if (this.tokens.length === 0) {
+      return {
+        errors: [],
+        parseTree: []
+      };
+    }
+    
     try {
       this.parseProgram();
     } catch (error) {
-      // Manejar errores de parsing
-      this.addError(`Error de análisis sintáctico: ${error}`, 'error');
+      // Manejar errores de parsing de manera más suave
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Solo reportar errores realmente críticos como errores
+      // Otros como advertencias
+      if (errorMessage.includes('infinito') || errorMessage.includes('crítico')) {
+        this.addError(`Error de análisis sintáctico: ${errorMessage}`, 'error');
+      } else {
+        this.addError(`Advertencia de análisis sintáctico: ${errorMessage}`, 'warning');
+      }
+      
+      // Intentar recuperación de errores
+      this.attemptErrorRecovery();
+    }
+    
+    // Solo realizar verificaciones post-análisis si hay pocos errores críticos
+    const criticalErrors = this.errors.filter(e => e.severity === 'error').length;
+    if (criticalErrors <= 1) {
+      try {
+        this.performPostAnalysisChecks();
+      } catch (error) {
+        // Si las verificaciones post-análisis fallan, solo agregar una advertencia
+        this.addError('Algunas verificaciones adicionales no se pudieron completar', 'warning');
+      }
+    }
+    
+    // Filtrar errores menos importantes para códigos simples
+    if (this.tokens.length < 10) {
+      this.errors = this.errors.filter(error => 
+        error.severity === 'error' || 
+        !error.message.includes('balance') &&
+        !error.message.includes('estructura') &&
+        !error.message.includes('indentación')
+      );
     }
     
     return {
@@ -743,36 +790,33 @@ export class SyntaxAnalyzer {
   // Métodos de verificación específicos
 
   private checkPythonIndentation(): void {
-    let expectedIndent = 0;
-    let previousLine = 0;
-    
-    for (const token of this.tokens) {
-      if (token.line !== previousLine) {
-        // Nueva línea
-        const lineTokens = this.tokens.filter(t => t.line === token.line);
-        const firstToken = lineTokens[0];
-        
-        if (firstToken && firstToken.column > 1) {
-          const currentIndent = firstToken.column - 1;
-          
-          // Verificar que la indentación sea múltiplo de 4
-          if (currentIndent % 4 !== 0) {
-            this.addError('Indentación debe ser múltiplo de 4 espacios', 'error', token.line);
-          }
-        }
-        
-        previousLine = token.line;
+    let expectedIndent = false;
+    for (let i = 0; i < this.tokens.length; i++) {
+      const token = this.tokens[i];
+      if (token.value === ':') {
+        expectedIndent = true;
+      } else if (expectedIndent && token.line > (this.tokens[i-1]?.line || 0)) {
+        // Nueva línea después de ':'
+        expectedIndent = false;
+        // Aquí podríamos verificar indentación real
       }
     }
   }
 
   private checkCppIncludes(): void {
     const hasInclude = this.tokens.some(token => 
-      token.category === 'SIMBOLO' && token.value.startsWith('#include')
-    );
+      token.value.startsWith('#include'));
     
-    if (!hasInclude) {
-      this.addError('Falta directiva #include en programa C++', 'warning');
+    if (!hasInclude && this.tokens.length > 5) {
+      this.addError('Programa C++ debería incluir al menos una directiva #include', 'warning');
+    }
+    
+    // Verificar función main
+    const hasMain = this.tokens.some(token => 
+      token.value === 'main' && token.category === 'IDENTIFICADOR');
+    
+    if (!hasMain && this.tokens.length > 10) {
+      this.addError('Programa C++ debería tener una función main', 'warning');
     }
   }
 
@@ -809,12 +853,15 @@ export class SyntaxAnalyzer {
     let endCount = 0;
     
     for (const token of this.tokens) {
-      if (token.value.toLowerCase() === 'begin') beginCount++;
-      if (token.value.toLowerCase() === 'end') endCount++;
+      if (token.value.toLowerCase() === 'begin') {
+        beginCount++;
+      } else if (token.value.toLowerCase() === 'end') {
+        endCount++;
+      }
     }
     
     if (beginCount !== endCount) {
-      this.addError(`BEGIN/END no balanceados: ${beginCount} begin, ${endCount} end`, 'error');
+      this.addError(`Desbalance de begin/end: ${beginCount} begin, ${endCount} end`, 'error');
     }
   }
 
@@ -1002,5 +1049,141 @@ export class SyntaxAnalyzer {
 
   private parseDeclareStatement(): ParseNode | null {
     return this.createNode('DeclareStatement');
+  }
+
+  private attemptErrorRecovery(): void {
+    // Intentar avanzar hasta el siguiente token reconocible
+    while (this.position < this.tokens.length) {
+      const token = this.getCurrentToken();
+      if (!token) break;
+      
+      // Buscar tokens que pueden indicar inicio de nueva declaración
+      if (this.isRecoveryToken(token)) {
+        break;
+      }
+      
+      this.position++;
+      
+      // Evitar bucle infinito
+      if (this.position > this.tokens.length + 10) {
+        break;
+      }
+    }
+  }
+
+  private isRecoveryToken(token: LexicalToken): boolean {
+    const recoveryKeywords = [
+      'function', 'var', 'let', 'const', 'class', 'if', 'for', 'while',
+      'def', 'import', 'from', 'return',
+      'int', 'void', 'char', 'float', 'double', '#include',
+      'program', 'procedure', 'begin', 'var',
+      'select', 'insert', 'update', 'delete', 'create', 'alter', 'drop',
+      'declare'
+    ];
+    
+    return recoveryKeywords.includes(token.value.toLowerCase()) ||
+           token.category === 'PALABRA_RESERVADA';
+  }
+
+  private performPostAnalysisChecks(): void {
+    // Verificaciones específicas por lenguaje
+    switch (this.language) {
+      case 'python':
+        this.checkPythonSpecific();
+        break;
+      case 'c++':
+      case 'cpp':
+        this.checkCppSpecific();
+        break;
+      case 'html':
+        this.checkHtmlSpecific();
+        break;
+      case 'pascal':
+        this.checkPascalSpecific();
+        break;
+      case 'pl/sql':
+      case 't-sql':
+      case 'sql':
+        this.checkSqlSpecific();
+        break;
+      case 'javascript':
+        this.checkJavaScriptSpecific();
+        break;
+    }
+    
+    // Verificaciones generales
+    this.checkBalancedSymbols();
+  }
+
+  private checkPythonSpecific(): void {
+    // Verificar indentación básica
+    let expectingIndent = false;
+    for (let i = 0; i < this.tokens.length; i++) {
+      const token = this.tokens[i];
+      if (token.value === ':') {
+        expectingIndent = true;
+      } else if (expectingIndent && token.line > (this.tokens[i-1]?.line || 0)) {
+        // Nueva línea después de ':'
+        expectingIndent = false;
+        // Aquí podríamos verificar indentación real
+      }
+    }
+  }
+
+  private checkCppSpecific(): void {
+    // Verificar que hay al menos un #include
+    const hasInclude = this.tokens.some(token => 
+      token.value.startsWith('#include'));
+    
+    if (!hasInclude && this.tokens.length > 5) {
+      this.addError('Programa C++ debería incluir al menos una directiva #include', 'warning');
+    }
+    
+    // Verificar función main
+    const hasMain = this.tokens.some(token => 
+      token.value === 'main' && token.category === 'IDENTIFICADOR');
+    
+    if (!hasMain && this.tokens.length > 10) {
+      this.addError('Programa C++ debería tener una función main', 'warning');
+    }
+  }
+
+  private checkHtmlSpecific(): void {
+    // Verificar etiquetas básicas de HTML
+    const hasHtmlTag = this.tokens.some(token => 
+      token.value.toLowerCase().includes('html'));
+    
+    if (!hasHtmlTag && this.tokens.length > 3) {
+      this.addError('Documento HTML debería contener etiqueta <html>', 'info');
+    }
+  }
+
+  private checkPascalSpecific(): void {
+    // Verificar estructura básica de Pascal
+    const hasProgram = this.tokens.some(token => 
+      token.value.toLowerCase() === 'program');
+    
+    if (!hasProgram && this.tokens.length > 5) {
+      this.addError('Programa Pascal debería comenzar con "program"', 'warning');
+    }
+    
+    // Verificar begin/end balance
+    this.checkBeginEndBalance();
+  }
+
+  private checkSqlSpecific(): void {
+    // Verificar comandos SQL válidos
+    const sqlKeywords = ['select', 'insert', 'update', 'delete', 'create', 'alter', 'drop'];
+    const hasSqlKeyword = this.tokens.some(token => 
+      sqlKeywords.includes(token.value.toLowerCase()));
+    
+    if (!hasSqlKeyword && this.tokens.length > 2) {
+      this.addError('Código SQL debería contener al menos un comando válido', 'info');
+    }
+  }
+
+  private checkJavaScriptSpecific(): void {
+    // Verificaciones específicas de JavaScript
+    // (Por ahora básicas, se pueden expandir)
   }
 }

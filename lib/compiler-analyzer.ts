@@ -1,5 +1,3 @@
-
-
 import { LexicalAnalyzer, LexicalToken, LexicalError } from './lexical-analyzer';
 import { SyntaxAnalyzer, SyntaxError, ParseNode } from './syntax-analyzer';
 import { SemanticAnalyzer, SemanticError, SymbolTableEntry } from './semantic-analyzer';
@@ -76,6 +74,41 @@ export class CompilerAnalyzer {
       }
     };
 
+    // Si el lenguaje es desconocido, reportar error inmediatamente
+    if (this.language === 'unknown') {
+      result.errors.push({
+        type: 'lexico',
+        message: 'No se pudo determinar el lenguaje de programación. El contenido no parece ser código válido de ningún lenguaje soportado.',
+        line: 1,
+        column: 1,
+        position: 0,
+        severity: 'error'
+      });
+      
+      // Intentar análisis léxico básico para mostrar tokens encontrados
+      try {
+        const lexicalResult = this.performLexicalAnalysis();
+        result.tokens = lexicalResult.tokens;
+        result.errors.push(...this.convertLexicalErrors(lexicalResult.errors));
+        result.analysisPhases.lexical = {
+          completed: true,
+          tokensFound: lexicalResult.tokens.length,
+          errorsFound: lexicalResult.errors.length + 1 // +1 por el error de lenguaje desconocido
+        };
+      } catch (error) {
+        result.errors.push({
+          type: 'lexico',
+          message: `Error en análisis léxico: ${error}`,
+          line: 1,
+          column: 1,
+          position: 0,
+          severity: 'error'
+        });
+      }
+      
+      return result;
+    }
+
     try {
       // Fase 1: Análisis Léxico
       const lexicalResult = this.performLexicalAnalysis();
@@ -87,9 +120,9 @@ export class CompilerAnalyzer {
         errorsFound: lexicalResult.errors.length
       };
 
-      // Solo continuar si no hay errores léxicos graves
+      // Continuar análisis sintáctico aunque haya algunos errores léxicos
       const criticalLexicalErrors = lexicalResult.errors.length;
-      if (criticalLexicalErrors === 0 || this.shouldContinueWithErrors(lexicalResult.errors)) {
+      if (criticalLexicalErrors <= 5) { // Permitir hasta 5 errores críticos
         
         // Fase 2: Análisis Sintáctico
         const syntaxResult = this.performSyntaxAnalysis(lexicalResult.tokens);
@@ -101,9 +134,9 @@ export class CompilerAnalyzer {
           errorsFound: syntaxResult.errors.length
         };
 
-        // Solo continuar si no hay errores sintácticos graves
+        // Continuar análisis semántico aunque haya algunos errores sintácticos
         const criticalSyntaxErrors = syntaxResult.errors.filter(e => e.severity === 'error').length;
-        if (criticalSyntaxErrors === 0) {
+        if (criticalSyntaxErrors <= 3) { // Permitir hasta 3 errores sintácticos críticos
           
           // Fase 3: Análisis Semántico
           const semanticResult = this.performSemanticAnalysis(lexicalResult.tokens, syntaxResult.parseTree);
@@ -115,9 +148,9 @@ export class CompilerAnalyzer {
             errorsFound: semanticResult.errors.length
           };
 
-          // Determinar si se puede ejecutar
+          // Determinar si se puede ejecutar - ser más tolerante
           const criticalSemanticErrors = semanticResult.errors.filter(e => e.severity === 'error').length;
-          result.canExecute = criticalSemanticErrors === 0 && criticalSyntaxErrors === 0 && criticalLexicalErrors === 0;
+          result.canExecute = (criticalSemanticErrors <= 2) && (criticalSyntaxErrors <= 1) && (criticalLexicalErrors <= 3);
 
           // Fase 4: Simulación de Ejecución (si es posible)
           if (result.canExecute) {
@@ -157,11 +190,6 @@ export class CompilerAnalyzer {
     return this.semanticAnalyzer.analyze();
   }
 
-  private shouldContinueWithErrors(errors: LexicalError[]): boolean {
-    // Continuar solo si no hay muchos errores críticos
-    return errors.length < 5;
-  }
-
   private convertLexicalErrors(errors: LexicalError[]): CompilerError[] {
     return errors.map(error => ({
       type: 'lexico' as const,
@@ -169,7 +197,7 @@ export class CompilerAnalyzer {
       line: error.line,
       column: error.column,
       position: error.position,
-      severity: 'error' as const,
+      severity: error.message.includes('no reconocido') || error.message.includes('no válido') ? 'error' : 'warning' as const,
       context: `Token: ${error.token}`
     }));
   }
@@ -548,4 +576,4 @@ export class CompilerAnalyzer {
 export function analyzeCodeEnhanced(code: string, language: string): CompilerAnalysisResult {
   const analyzer = new CompilerAnalyzer(code, language);
   return analyzer.analyze();
-} 
+}

@@ -180,3 +180,55 @@ def fibonacci(n):
 
 print(fibonacci(10))
 ```
+
+##Ejemplo Pascal
+```pascal
+program HelloWorld;
+begin
+  writeln('Hello, World!');
+end.
+```
+
+##Ejemplo PL/SQL
+```sql
+CREATE TABLE usuarios (
+  id INT PRIMARY KEY,
+  nombre VARCHAR(50),
+  email VARCHAR(100)
+);
+
+INSERT INTO usuarios VALUES (1, 'Juan', 'juan@email.com');
+```
+
+##Ejemplo C++
+```cpp
+#include <iostream>
+using namespace std;
+
+int main() {
+  cout << "Hello, World!" << endl;
+  return 0;
+}
+```
+
+##Ejemplo HTML
+```html
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Página Web</title>
+```
+
+##Ejemplo T-SQL
+```sql
+CREATE TABLE usuarios (
+  id INT PRIMARY KEY,
+  nombre VARCHAR(50),
+  email VARCHAR(100)
+);
+
+INSERT INTO usuarios VALUES (1, 'Juan', 'juan@email.com');
+```
+

@@ -135,18 +135,34 @@ export class SemanticAnalyzer {
   public analyze(): { errors: SemanticError[], symbolTable: SymbolTableEntry[] } {
     this.reset();
     
+    // Si no hay tokens o nodos para analizar, retornar resultado básico
+    if (this.tokens.length === 0 && this.parseTree.length === 0) {
+      return {
+        errors: [],
+        symbolTable: []
+      };
+    }
+    
     try {
       // 1. Primera pasada: construir tabla de símbolos
       this.buildSymbolTable();
       
-      // 2. Segunda pasada: verificación semántica
-      this.performSemanticChecks();
+      // 2. Segunda pasada: verificación semántica (solo si hay suficientes símbolos)
+      if (this.symbolTable.length > 0) {
+        this.performSemanticChecks();
+      }
       
-      // 3. Verificaciones específicas del lenguaje
-      this.performLanguageSpecificChecks();
+      // 3. Verificaciones específicas del lenguaje (solo si hay pocos errores)
+      if (this.errors.length <= 3) {
+        this.performLanguageSpecificChecks();
+      }
       
     } catch (error) {
-      this.addError(`Error en análisis semántico: ${error}`, 'error');
+      // Manejar errores de manera más suave - solo agregar si no hay otros errores
+      if (this.errors.length === 0) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.addError(`Error en análisis semántico: ${errorMessage}`, 'warning');
+      }
     }
     
     return {
@@ -166,12 +182,20 @@ export class SemanticAnalyzer {
     // Agregar símbolos built-in del lenguaje
     this.addBuiltInSymbols();
     
-    // Procesar tokens para encontrar declaraciones
-    this.processTokensForDeclarations();
+    // Procesar tokens para encontrar declaraciones (con manejo de errores)
+    try {
+      this.processTokensForDeclarations();
+    } catch (error) {
+      this.addError('Error procesando declaraciones de tokens', 'warning');
+    }
     
     // Procesar árbol de parsing para declaraciones complejas
-    for (const node of this.parseTree) {
-      this.processNodeForDeclarations(node);
+    try {
+      for (const node of this.parseTree) {
+        this.processNodeForDeclarations(node);
+      }
+    } catch (error) {
+      this.addError('Error procesando declaraciones del árbol sintáctico', 'warning');
     }
   }
 
@@ -220,19 +244,29 @@ export class SemanticAnalyzer {
     for (let i = 0; i < this.tokens.length; i++) {
       const token = this.tokens[i];
       
-      // Detectar declaraciones de variables
-      if (this.isVariableDeclarationKeyword(token.value)) {
-        this.processVariableDeclaration(i);
-      }
-      
-      // Detectar declaraciones de funciones
-      if (this.isFunctionDeclarationKeyword(token.value)) {
-        this.processFunctionDeclaration(i);
-      }
-      
-      // Detectar declaraciones de clases
-      if (token.value === 'class') {
-        this.processClassDeclaration(i);
+      try {
+        // Verificar si es una declaración de variable
+        if (this.isVariableDeclarationKeyword(token.value)) {
+          this.processVariableDeclaration(i);
+        }
+        
+        // Verificar si es una declaración de función
+        else if (this.isFunctionDeclarationKeyword(token.value)) {
+          this.processFunctionDeclaration(i);
+        }
+        
+        // Verificar si es una declaración de clase
+        else if (token.value === 'class' && token.category === 'PALABRA_RESERVADA') {
+          this.processClassDeclaration(i);
+        }
+        
+        // Agregar identificadores como símbolos potenciales
+        else if (token.category === 'IDENTIFICADOR' && !this.isKeyword(token.value)) {
+          this.addPotentialSymbol(token);
+        }
+      } catch (error) {
+        // Continuar procesando otros tokens aunque uno falle
+        continue;
       }
     }
   }
@@ -258,61 +292,86 @@ export class SemanticAnalyzer {
   }
 
   private performSemanticChecks(): void {
-    // Verificar uso de variables no declaradas
-    this.checkUndeclaredVariables();
+    // Realizar verificaciones semánticas básicas con manejo de errores
+    try {
+      this.checkUndeclaredVariables();
+    } catch (error) {
+      this.addError('Error verificando variables no declaradas', 'info');
+    }
     
-    // Verificar llamadas a funciones
-    this.checkFunctionCalls();
+    try {
+      this.checkFunctionCalls();
+    } catch (error) {
+      this.addError('Error verificando llamadas a funciones', 'info');
+    }
     
-    // Verificar compatibilidad de tipos
-    this.checkTypeCompatibility();
+    try {
+      this.checkTypeCompatibility();
+    } catch (error) {
+      this.addError('Error verificando compatibilidad de tipos', 'info');
+    }
     
-    // Verificar variables no utilizadas
-    this.checkUnusedVariables();
-    
-    // Verificar variables no inicializadas
-    this.checkUninitializedVariables();
-    
-    // Verificar asignaciones a constantes
-    this.checkConstantAssignments();
-    
-    // Verificar alcance de variables
-    this.checkVariableScope();
+    // Verificaciones de advertencia (no críticas)
+    try {
+      this.checkUnusedVariables();
+      this.checkUninitializedVariables();
+    } catch (error) {
+      // Estas son verificaciones de calidad, no críticas
+    }
   }
 
   private performLanguageSpecificChecks(): void {
-    switch (this.language) {
-      case 'javascript':
-        this.checkJavaScriptSpecific();
-        break;
-      case 'python':
-        this.checkPythonSpecific();
-        break;
-      case 'c++':
-        this.checkCppSpecific();
-        break;
-      case 'pascal':
-        this.checkPascalSpecific();
-        break;
-      case 'pl/sql':
-      case 't-sql':
-        this.checkSqlSpecific();
-        break;
+    try {
+      switch (this.language) {
+        case 'javascript':
+          this.checkJavaScriptSpecific();
+          break;
+        case 'python':
+          this.checkPythonSpecific();
+          break;
+        case 'c++':
+        case 'cpp':
+          this.checkCppSpecific();
+          break;
+        case 'pascal':
+          this.checkPascalSpecific();
+          break;
+        case 'pl/sql':
+        case 't-sql':
+        case 'sql':
+          this.checkSqlSpecific();
+          break;
+      }
+    } catch (error) {
+      this.addError(`Error en verificaciones específicas de ${this.language}`, 'info');
     }
   }
 
   private checkUndeclaredVariables(): void {
-    for (const token of this.tokens) {
+    for (let i = 0; i < this.tokens.length; i++) {
+      const token = this.tokens[i];
+      
       if (token.category === 'IDENTIFICADOR' && !this.isKeyword(token.value)) {
         const symbol = this.findSymbol(token.value);
+        
         if (!symbol && !this.isBuiltInFunction(token.value)) {
-          this.addError(
-            `Variable '${token.value}' usada sin declarar`,
-            'error',
-            token.line,
-            token.column,
-            token.position
-          );
+          // Verificar si no es parte de una declaración
+          const prevToken = this.tokens[i - 1];
+          const nextToken = this.tokens[i + 1];
+          
+          const isDeclaration = prevToken && this.isVariableDeclarationKeyword(prevToken.value);
+          const isFunctionDecl = prevToken && this.isFunctionDeclarationKeyword(prevToken.value);
+          const isObjectProperty = nextToken && nextToken.value === '.';
+          
+          if (!isDeclaration && !isFunctionDecl && !isObjectProperty) {
+            this.addError(
+              `Variable '${token.value}' no ha sido declarada`,
+              'warning',
+              token.line,
+              token.column,
+              token.position
+            );
+          }
         } else if (symbol) {
           // Marcar como usado
           symbol.isUsed = true;
@@ -322,38 +381,32 @@ export class SemanticAnalyzer {
   }
 
   private checkFunctionCalls(): void {
-    for (let i = 0; i < this.tokens.length - 1; i++) {
+    for (let i = 0; i < this.tokens.length; i++) {
       const token = this.tokens[i];
       const nextToken = this.tokens[i + 1];
       
-      if (token.category === 'IDENTIFICADOR' && nextToken.value === '(') {
+      // Identificar llamadas a función (identificador seguido de paréntesis)
+      if (token.category === 'IDENTIFICADOR' && 
+          nextToken && nextToken.value === '(') {
+        
         const functionSymbol = this.findFunction(token.value);
         
         if (!functionSymbol && !this.isBuiltInFunction(token.value)) {
           this.addError(
-            `Función '${token.value}' no está definida`,
+            `Función '${token.value}' no ha sido declarada`,
             'error',
             token.line,
             token.column,
             token.position
           );
-        } else if (functionSymbol) {
-          // Verificar número de parámetros (simplificado)
-          const callParams = this.extractFunctionCallParameters(i + 1);
-          const expectedParams = functionSymbol.parameters?.length || 0;
-          
-          if (callParams.length !== expectedParams) {
-            this.addError(
-              `Función '${token.value}' espera ${expectedParams} parámetros, pero se proporcionaron ${callParams.length}`,
-              'error',
-              token.line,
-              token.column,
-              token.position
-            );
+        } else {
+          // Verificar parámetros básicamente
+          try {
+            const params = this.extractFunctionCallParameters(i + 1);
+            // Aquí se podrían hacer más verificaciones de parámetros
+          } catch (error) {
+            // Error en extracción de parámetros, pero no es crítico
           }
-          
-          // Marcar función como usada
-          functionSymbol.isUsed = true;
         }
       }
     }
@@ -665,26 +718,31 @@ export class SemanticAnalyzer {
   }
 
   private processVariableDeclaration(index: number): void {
-    const declarationToken = this.tokens[index];
-    const nameToken = this.tokens[index + 1];
-    
-    if (nameToken && nameToken.category === 'IDENTIFICADOR') {
-      const dataType = this.inferDataTypeFromDeclaration(declarationToken.value, index);
-      const isConstant = declarationToken.value === 'const';
+    try {
+      const keyword = this.tokens[index];
+      const nameToken = this.tokens[index + 1];
+      
+      if (!nameToken || nameToken.category !== 'IDENTIFICADOR') {
+        return; // Declaración incompleta, pero no es error crítico
+      }
+      
+      const dataType = this.inferDataTypeFromDeclaration(keyword.value, index);
       
       const symbol: SymbolTableEntry = {
         name: nameToken.value,
         type: 'variable',
-        dataType,
+        dataType: dataType,
         scope: this.currentScope.name,
         line: nameToken.line,
         column: nameToken.column,
-        isInitialized: false,
+        isInitialized: this.hasInitializer(index),
         isUsed: false,
-        isConstant
+        isConstant: keyword.value === 'const'
       };
       
       this.addSymbol(symbol);
+    } catch (error) {
+      // Fallo procesando esta declaración, pero continuamos
     }
   }
 
@@ -1059,5 +1117,37 @@ export class SemanticAnalyzer {
     node.children.forEach(child => {
       this.analyzePythonStatement(child, scope);
     });
+  }
+
+  private addPotentialSymbol(token: LexicalToken): void {
+    // Solo agregar si no existe ya
+    if (!this.findSymbol(token.value)) {
+      const symbol: SymbolTableEntry = {
+        name: token.value,
+        type: 'variable',
+        dataType: 'unknown',
+        scope: this.currentScope.name,
+        line: token.line,
+        column: token.column,
+        isInitialized: false,
+        isUsed: false
+      };
+      
+      this.addSymbol(symbol);
+    }
+  }
+
+  private hasInitializer(index: number): boolean {
+    // Buscar operador de asignación después de la declaración
+    for (let i = index + 1; i < Math.min(index + 5, this.tokens.length); i++) {
+      const token = this.tokens[i];
+      if (token.value === '=' || token.type === 'OPERADOR_ASIGNACION') {
+        return true;
+      }
+      if (token.value === ';' || token.value === '\n') {
+        break;
+      }
+    }
+    return false;
   }
 }

@@ -186,8 +186,13 @@ export class LexicalAnalyzer {
   public analyze(): { tokens: LexicalToken[], errors: LexicalError[] } {
     this.reset();
     
+    // Verificar si el código está vacío o solo tiene espacios
+    if (!this.code.trim()) {
+      return { tokens: [], errors: [] };
+    }
+    
     let iterations = 0;
-    const maxIterations = this.code.length * 2; // Safety limit
+    const maxIterations = this.code.length * 3; // Safety limit aumentado
     
     while (this.position < this.code.length && iterations < maxIterations) {
       const char = this.code[this.position];
@@ -212,16 +217,66 @@ export class LexicalAnalyzer {
       if (token) {
         this.tokens.push(token);
       } else {
-        // Token no reconocido
-        this.addError(`Carácter no reconocido: '${char}'`, char);
-        this.position++;
-        this.column++;
+        // Token no reconocido - manejar según el lenguaje
+        if (this.language === 'unknown') {
+          // Para lenguaje desconocido, ser muy estricto
+          if (/[a-zA-Z]/.test(char)) {
+            // Buscar toda la palabra no reconocida
+            let wordEnd = this.position;
+            while (wordEnd < this.code.length && /[a-zA-Z0-9]/.test(this.code[wordEnd])) {
+              wordEnd++;
+            }
+            const unknownWord = this.code.slice(this.position, wordEnd);
+            this.addError(`Token no reconocido: '${unknownWord}' - No se puede determinar el lenguaje`, unknownWord);
+            this.advance(unknownWord.length);
+          } else {
+            this.addError(`Carácter no válido: '${char}' - Lenguaje no reconocido`, char);
+            this.advance(1);
+          }
+        } else {
+          // Para lenguajes conocidos, mantener la lógica anterior pero menos permisiva
+          if (this.isValidSingleChar(char)) {
+            // Crear token para caracteres válidos individuales
+            const charToken = this.createToken('CARACTER_ESPECIAL', char, 'SIMBOLO');
+            charToken.position = this.position;
+            charToken.line = this.line;
+            charToken.column = this.column;
+            this.tokens.push(charToken);
+            this.advance(1);
+          } else if (/[a-zA-Z0-9]/.test(char)) {
+            // Si es alfanumérico, crear token genérico con advertencia
+            const charToken = this.createToken('CARACTER', char, 'SIMBOLO');
+            charToken.position = this.position;
+            charToken.line = this.line;
+            charToken.column = this.column;
+            this.tokens.push(charToken);
+            this.addError(`Token posiblemente no válido: '${char}'`, char);
+            this.advance(1);
+          } else if (char === '\r' || char === '\t' || /[\u00a0\u2028\u2029]/.test(char)) {
+            // Caracteres de control - simplemente ignorar
+            this.advance(1);
+          } else {
+            // Solo reportar error para caracteres verdaderamente problemáticos
+            const problematicChars = /[^\x20-\x7E\n\r\t\s]/; // Caracteres no ASCII imprimibles
+            if (problematicChars.test(char) && char !== '´' && char !== '`' && char !== '"' && char !== "'" && char !== '—' && char !== '–') {
+              this.addError(`Carácter no válido: '${char}' (código: ${char.charCodeAt(0)})`, char);
+            } else {
+              // Para otros caracteres, crear token genérico en lugar de error
+              const charToken = this.createToken('SIMBOLO_ESPECIAL', char, 'SIMBOLO');
+              charToken.position = this.position;
+              charToken.line = this.line;
+              charToken.column = this.column;
+              this.tokens.push(charToken);
+            }
+            this.advance(1);
+          }
+        }
       }
       
       // Safety check: ensure position is advancing
       if (this.position === previousPosition) {
-        this.addError(`Error interno: posición no avanza en '${char}'`, char);
-        this.position++; // Force advancement to prevent infinite loop
+        // Solo forzar avance si realmente no se movió nada
+        this.position++;
         this.column++;
       }
       
@@ -284,41 +339,62 @@ export class LexicalAnalyzer {
     
     // Comentario de línea simple (//)
     if (remaining.startsWith('//')) {
-      const match = remaining.match(/^\/\/.*$/);
-      if (match) {
-        const value = match[0];
-        this.advance(value.length);
-        return this.createToken('COMENTARIO_LINEA', value, 'COMENTARIO');
-      }
+      const lineEnd = remaining.indexOf('\n');
+      const value = lineEnd === -1 ? remaining : remaining.slice(0, lineEnd);
+      this.advance(value.length);
+      return this.createToken('COMENTARIO_LINEA', value, 'COMENTARIO');
     }
     
     // Comentario multilínea (/* */)
     if (remaining.startsWith('/*')) {
-      const match = remaining.match(/^\/\*[\s\S]*?\*\//);
-      if (match) {
-        const value = match[0];
+      const endIndex = remaining.indexOf('*/');
+      if (endIndex !== -1) {
+        const value = remaining.slice(0, endIndex + 2);
         this.advanceMultiline(value);
         return this.createToken('COMENTARIO_BLOQUE', value, 'COMENTARIO');
+      } else {
+        // Comentario sin cerrar
+        const value = remaining;
+        this.advanceMultiline(value);
+        this.addError('Comentario multilínea sin cerrar', value);
+        return this.createToken('COMENTARIO_BLOQUE_INCOMPLETO', value, 'COMENTARIO');
       }
     }
     
     // Comentario Python (#)
-    if (remaining.startsWith('#') && this.language === 'python') {
-      const match = remaining.match(/^#.*$/);
-      if (match) {
-        const value = match[0];
-        this.advance(value.length);
-        return this.createToken('COMENTARIO_PYTHON', value, 'COMENTARIO');
-      }
+    if (remaining.startsWith('#') && (this.language === 'python' || this.language.includes('sql'))) {
+      const lineEnd = remaining.indexOf('\n');
+      const value = lineEnd === -1 ? remaining : remaining.slice(0, lineEnd);
+      this.advance(value.length);
+      return this.createToken('COMENTARIO_PYTHON', value, 'COMENTARIO');
     }
     
     // Comentario SQL (--)
-    if (remaining.startsWith('--') && (this.language.includes('sql'))) {
-      const match = remaining.match(/^--.*$/);
-      if (match) {
-        const value = match[0];
-        this.advance(value.length);
-        return this.createToken('COMENTARIO_SQL', value, 'COMENTARIO');
+    if (remaining.startsWith('--') && (this.language.toLowerCase().includes('sql'))) {
+      const lineEnd = remaining.indexOf('\n');
+      const value = lineEnd === -1 ? remaining : remaining.slice(0, lineEnd);
+      this.advance(value.length);
+      return this.createToken('COMENTARIO_SQL', value, 'COMENTARIO');
+    }
+    
+    // Comentario Pascal { } o (* *)
+    if (this.language === 'pascal') {
+      if (remaining.startsWith('{')) {
+        const endIndex = remaining.indexOf('}');
+        if (endIndex !== -1) {
+          const value = remaining.slice(0, endIndex + 1);
+          this.advanceMultiline(value);
+          return this.createToken('COMENTARIO_PASCAL', value, 'COMENTARIO');
+        }
+      }
+      
+      if (remaining.startsWith('(*')) {
+        const endIndex = remaining.indexOf('*)');
+        if (endIndex !== -1) {
+          const value = remaining.slice(0, endIndex + 2);
+          this.advanceMultiline(value);
+          return this.createToken('COMENTARIO_PASCAL', value, 'COMENTARIO');
+        }
       }
     }
     
@@ -330,32 +406,84 @@ export class LexicalAnalyzer {
     
     // Cadena con comillas dobles
     if (remaining.startsWith('"')) {
-      const match = remaining.match(/^"([^"\\]|\\.)*"/);
-      if (match) {
-        const value = match[0];
-        this.advance(value.length);
-        return this.createToken('CADENA_DOBLE', value, 'CADENA');
+      // Buscar el cierre de la cadena, manejando escapes
+      let i = 1;
+      let escaped = false;
+      while (i < remaining.length) {
+        const char = remaining[i];
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '"') {
+          // Encontramos el cierre
+          const value = remaining.slice(0, i + 1);
+          this.advance(value.length);
+          return this.createToken('CADENA_DOBLE', value, 'CADENA');
+        } else if (char === '\n' && this.language !== 'python') {
+          // Cadena sin cerrar (excepto en Python que permite multilínea)
+          break;
+        }
+        i++;
       }
+      
+      // Cadena sin cerrar - crear token pero reportar error
+      const value = remaining.slice(0, i);
+      this.advance(value.length);
+      this.addError('Cadena sin cerrar', value);
+      return this.createToken('CADENA_DOBLE_INCOMPLETA', value, 'CADENA');
     }
     
     // Cadena con comillas simples
     if (remaining.startsWith("'")) {
-      const match = remaining.match(/^'([^'\\]|\\.)*'/);
-      if (match) {
-        const value = match[0];
-        this.advance(value.length);
-        return this.createToken('CADENA_SIMPLE', value, 'CADENA');
+      let i = 1;
+      let escaped = false;
+      while (i < remaining.length) {
+        const char = remaining[i];
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === "'") {
+          const value = remaining.slice(0, i + 1);
+          this.advance(value.length);
+          return this.createToken('CADENA_SIMPLE', value, 'CADENA');
+        } else if (char === '\n' && this.language !== 'python') {
+          break;
+        }
+        i++;
       }
+      
+      // Cadena sin cerrar
+      const value = remaining.slice(0, i);
+      this.advance(value.length);
+      this.addError('Cadena sin cerrar', value);
+      return this.createToken('CADENA_SIMPLE_INCOMPLETA', value, 'CADENA');
     }
     
     // Template string (JavaScript)
     if (remaining.startsWith('`') && this.language === 'javascript') {
-      const match = remaining.match(/^`([^`\\]|\\.)*`/);
-      if (match) {
-        const value = match[0];
-        this.advanceMultiline(value);
-        return this.createToken('TEMPLATE_STRING', value, 'CADENA');
+      let i = 1;
+      let escaped = false;
+      while (i < remaining.length) {
+        const char = remaining[i];
+        if (escaped) {
+          escaped = false;
+        } else if (char === '\\') {
+          escaped = true;
+        } else if (char === '`') {
+          const value = remaining.slice(0, i + 1);
+          this.advanceMultiline(value);
+          return this.createToken('TEMPLATE_STRING', value, 'CADENA');
+        }
+        i++;
       }
+      
+      // Template string sin cerrar
+      const value = remaining.slice(0, i);
+      this.advanceMultiline(value);
+      this.addError('Template string sin cerrar', value);
+      return this.createToken('TEMPLATE_STRING_INCOMPLETA', value, 'CADENA');
     }
     
     return null;
@@ -380,10 +508,16 @@ export class LexicalAnalyzer {
       return this.createToken('NUMERO_BINARIO', value, 'NUMERO');
     }
     
-    // Número decimal o entero
-    const numMatch = remaining.match(/^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?/);
+    // Número decimal o entero (más permisivo)
+    const numMatch = remaining.match(/^[+-]?\d*\.?\d+([eE][+-]?\d+)?/);
     if (numMatch) {
       const value = numMatch[0];
+      
+      // Validar que no sea solo un punto
+      if (value === '.' || value === '+.' || value === '-.') {
+        return null;
+      }
+      
       this.advance(value.length);
       
       if (value.includes('.') || value.includes('e') || value.includes('E')) {
@@ -399,14 +533,30 @@ export class LexicalAnalyzer {
   private tryMatchOperator(): LexicalToken | null {
     const remaining = this.code.slice(this.position);
     
-    // Operadores de múltiples caracteres (orden importa)
+    // Operadores específicos por lenguaje
+    const languageSpecificOps: { [key: string]: string[] } = {
+      'python': ['**', '//', '+=', '-=', '*=', '/=', '//=', '%=', '**=', '&=', '|=', '^=', '>>=', '<<='],
+      'c++': ['<<', '>>', '->', '::', '.*', '->*', '++', '--'],
+      'javascript': ['=>', '...', '??', '?.', '**', '++', '--'],
+      'pascal': [':=', '<>', '<=', '>='],
+      'sql': ['||', '!=', '<>', '<=', '>='],
+      'pl/sql': ['||', ':=', '=>', '!=', '<>', '<=', '>=', '%'],
+      't-sql': ['+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '!=', '<>', '<=', '>=']
+    };
+    
+    // Operadores de múltiples caracteres (orden importa - más largos primero)
     const multiCharOps = [
-      '===', '!==', '++', '--', '<<', '>>', '<=', '>=', '==', '!=',
+      '===', '!==', '<<=', '>>=', '**=', '//=', '->*', '...', 
+      '++', '--', '<<', '>>', '<=', '>=', '==', '!=', '<>', 
       '&&', '||', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
-      '<<=', '>>='
+      '->', '::', '.*', '=>', '??', '?.', '**', '//', ':=', '||'
     ];
     
-    for (const op of multiCharOps) {
+    // Añadir operadores específicos del lenguaje actual
+    const langOps = languageSpecificOps[this.language] || [];
+    const allOps = [...new Set([...multiCharOps, ...langOps])].sort((a, b) => b.length - a.length);
+    
+    for (const op of allOps) {
       if (remaining.startsWith(op)) {
         this.advance(op.length);
         return this.createToken(this.getOperatorType(op), op, 'OPERADOR');
@@ -414,7 +564,7 @@ export class LexicalAnalyzer {
     }
     
     // Operadores de un carácter
-    const singleCharOps = ['+', '-', '*', '/', '%', '=', '<', '>', '!', '&', '|', '^', '~', '?'];
+    const singleCharOps = ['+', '-', '*', '/', '%', '=', '<', '>', '!', '&', '|', '^', '~', '?', '@'];
     const firstChar = remaining[0];
     
     if (singleCharOps.includes(firstChar)) {
@@ -439,7 +589,52 @@ export class LexicalAnalyzer {
 
   private tryMatchIdentifierOrKeyword(): LexicalToken | null {
     const remaining = this.code.slice(this.position);
-    const match = remaining.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
+    
+    // Si el lenguaje es desconocido, ser mucho más estricto
+    if (this.language === 'unknown') {
+      // No reconocer cadenas aleatorias como identificadores válidos
+      const match = remaining.match(/^[a-zA-Z_][a-zA-Z0-9_]{0,15}/);
+      if (match) {
+        const value = match[0];
+        
+        // Verificar si parece una palabra real o código válido
+        const hasVowels = /[aeiouAEIOU]/.test(value);
+        const hasConsonants = /[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]/.test(value);
+        const isReasonableLength = value.length >= 2 && value.length <= 15;
+        const isAllSameChar = /^(.)\1+$/.test(value);
+        const hasRepeatingPattern = /(.{2,})\1{2,}/.test(value);
+        
+        // Si parece una cadena aleatoria, reportar error
+        if (!hasVowels || !hasConsonants || !isReasonableLength || isAllSameChar || hasRepeatingPattern) {
+          this.addError(`Token no reconocido en lenguaje desconocido: '${value}'`, value);
+          this.advance(value.length);
+          return null;
+        }
+        
+        this.advance(value.length);
+        return this.createToken('IDENTIFICADOR_POSIBLE', value, 'IDENTIFICADOR');
+      }
+      return null;
+    }
+    
+    // Patrón más amplio para identificadores en lenguajes conocidos
+    // Permitir identificadores que empiecen con letra, guion bajo, o @ (para SQL Server)
+    let match = remaining.match(/^[a-zA-Z_@][a-zA-Z0-9_$@]*/);
+    
+    // Para PL/SQL, permitir identificadores con % (como %ROWTYPE, %TYPE)
+    if (!match && (this.language.includes('sql') || this.language === 'pl/sql')) {
+      match = remaining.match(/^[a-zA-Z_@][a-zA-Z0-9_$@]*(%[a-zA-Z]+)?/);
+    }
+    
+    // Para C++, permitir espacios de nombres (::)
+    if (!match && this.language === 'c++') {
+      match = remaining.match(/^[a-zA-Z_][a-zA-Z0-9_]*(::[a-zA-Z_][a-zA-Z0-9_]*)*/);
+    }
+    
+    // Para HTML, permitir identificadores con guiones
+    if (!match && this.language === 'html') {
+      match = remaining.match(/^[a-zA-Z][a-zA-Z0-9\-_]*/);
+    }
     
     if (match) {
       const value = match[0];
@@ -448,7 +643,13 @@ export class LexicalAnalyzer {
       // Verificar si es palabra reservada
       const reservedWords = RESERVED_WORDS_EXTENDED[this.language as keyof typeof RESERVED_WORDS_EXTENDED] || [];
       
-      if (reservedWords.includes(value.toLowerCase()) || reservedWords.includes(value)) {
+      // Verificación más flexible de palabras reservadas
+      const isReserved = reservedWords.some(word => 
+        word.toLowerCase() === value.toLowerCase() || 
+        word === value
+      );
+      
+      if (isReserved) {
         return this.createToken('PALABRA_RESERVADA', value, 'PALABRA_RESERVADA');
       } else {
         return this.createToken('IDENTIFICADOR', value, 'IDENTIFICADOR');
@@ -461,10 +662,19 @@ export class LexicalAnalyzer {
   private tryMatchPreprocessor(): LexicalToken | null {
     const remaining = this.code.slice(this.position);
     
-    if (remaining.startsWith('#') && this.language === 'c++') {
-      const match = remaining.match(/^#[a-zA-Z_][a-zA-Z0-9_]*.*$/);
-      if (match) {
-        const value = match[0];
+    // Directivas de preprocesador para C++
+    if (remaining.startsWith('#') && (this.language === 'c++' || this.language.includes('cpp'))) {
+      // Buscar hasta el final de la línea o hasta encontrar un comentario
+      const lineEnd = remaining.indexOf('\n');
+      const commentStart = remaining.indexOf('//');
+      
+      let endPos = lineEnd === -1 ? remaining.length : lineEnd;
+      if (commentStart !== -1 && commentStart < endPos) {
+        endPos = commentStart;
+      }
+      
+      const value = remaining.slice(0, endPos).trim();
+      if (value) {
         this.advance(value.length);
         return this.createToken('DIRECTIVA_PREPROCESADOR', value, 'SIMBOLO');
       }
@@ -474,17 +684,21 @@ export class LexicalAnalyzer {
   }
 
   private getOperatorType(op: string): string {
-    const arithmeticOps = ['+', '-', '*', '/', '%', '++', '--'];
-    const comparisonOps = ['==', '!=', '<', '>', '<=', '>=', '===', '!=='];
-    const logicalOps = ['&&', '||', '!'];
-    const assignmentOps = ['=', '+=', '-=', '*=', '/=', '%='];
+    const arithmeticOps = ['+', '-', '*', '/', '%', '++', '--', '**', '//', '+=', '-=', '*=', '/=', '%=', '**=', '//='];
+    const comparisonOps = ['==', '!=', '<', '>', '<=', '>=', '===', '!==', '<>', 'is', 'is not', 'in', 'not in'];
+    const logicalOps = ['&&', '||', '!', 'and', 'or', 'not', '??'];
+    const assignmentOps = ['=', '+=', '-=', '*=', '/=', '%=', ':=', '=>'];
     const bitwiseOps = ['&', '|', '^', '~', '<<', '>>', '&=', '|=', '^=', '<<=', '>>='];
+    const memberAccessOps = ['.', '->', '::', '?.'];
+    const specialOps = ['...', '||', '@'];
     
     if (arithmeticOps.includes(op)) return 'OPERADOR_ARITMETICO';
     if (comparisonOps.includes(op)) return 'OPERADOR_COMPARACION';
     if (logicalOps.includes(op)) return 'OPERADOR_LOGICO';
     if (assignmentOps.includes(op)) return 'OPERADOR_ASIGNACION';
     if (bitwiseOps.includes(op)) return 'OPERADOR_BITWISE';
+    if (memberAccessOps.includes(op)) return 'OPERADOR_ACCESO';
+    if (specialOps.includes(op)) return 'OPERADOR_ESPECIAL';
     
     return 'OPERADOR';
   }
@@ -543,5 +757,15 @@ export class LexicalAnalyzer {
       position: this.position,
       token
     });
+  }
+
+  private isValidSingleChar(char: string): boolean {
+    // Caracteres que pueden ser tokens válidos por sí solos
+    return /[{}()\[\];,.:!@#$%^&*+=|\\/<>?~`-]/.test(char);
+  }
+
+  private isIgnorableChar(char: string): boolean {
+    // Caracteres que podemos ignorar sin reportar error
+    return /[\r\n\t\f\v\u00a0\u2028\u2029]/.test(char);
   }
 }

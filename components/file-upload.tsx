@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Upload, FileText, X } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
+
 
 interface FileUploadProps {
   onCodeLoad: (code: string, fileName?: string) => void;
@@ -27,7 +28,7 @@ export default function FileUpload({ onCodeLoad }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [textInput, setTextInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -63,19 +64,15 @@ export default function FileUpload({ onCodeLoad }: FileUploadProps) {
     });
 
     if (txtFiles.length === 0) {
-      toast({
-        title: "Formato no válido",
+      toast.error("Formato no válido", {
         description: "Solo se permiten archivos de código (.txt, .js, .py, .cpp, .html, .sql, .pas)",
-        variant: "destructive",
       });
       return;
     }
 
     if (txtFiles.length > 5) {
-      toast({
-        title: "Demasiados archivos",
+      toast.error("Demasiados archivos", {
         description: "Máximo 5 archivos permitidos",
-        variant: "destructive",
       });
       return;
     }
@@ -94,16 +91,13 @@ export default function FileUpload({ onCodeLoad }: FileUploadProps) {
       const content = e.target?.result as string;
       onCodeLoad(content, file.name);
       setIsOpen(false);
-      toast({
-        title: "Archivo cargado",
+      toast.success("Archivo cargado", {
         description: `${file.name} se cargó exitosamente`,
       });
     };
     reader.onerror = () => {
-      toast({
-        title: "Error al leer archivo",
+      toast.error("Error al leer archivo", {
         description: "No se pudo leer el archivo seleccionado",
-        variant: "destructive",
       });
     };
     reader.readAsText(file);
@@ -115,10 +109,8 @@ export default function FileUpload({ onCodeLoad }: FileUploadProps) {
 
   const handleTextSubmit = () => {
     if (!textInput.trim()) {
-      toast({
-        title: "Campo vacío",
+      toast.error("Campo vacío", {
         description: "Por favor ingresa código para analizar",
-        variant: "destructive",
       });
       return;
     }
@@ -126,8 +118,7 @@ export default function FileUpload({ onCodeLoad }: FileUploadProps) {
     onCodeLoad(textInput, 'texto-manual.txt');
     setTextInput('');
     setIsOpen(false);
-    toast({
-      title: "Código cargado",
+      toast.success("Código cargado", {
       description: "El código se cargó exitosamente",
     });
   };

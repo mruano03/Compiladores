@@ -6,81 +6,166 @@ interface LanguageSignature {
   patterns: RegExp[];
   fileExtensions: string[];
   weight: number;
+  exclusivePatterns?: RegExp[]; // Patrones que son únicos de este lenguaje
 }
 
 const LANGUAGE_SIGNATURES: { [key: string]: LanguageSignature } = {
   javascript: {
-    keywords: ['function', 'var', 'let', 'const', 'console', 'document', 'window', '=>', 'import', 'export'],
+    keywords: ['function', 'var', 'let', 'const', 'console', 'document', 'window', '=>', 'import', 'export', 'require'],
     patterns: [
-      /console\.log\(/,
+      /console\.log\s*\(/i,
       /function\s+\w+\s*\(/,
-      /=>\s*{/,
-      /require\(/,
+      /=>\s*{?/,
+      /require\s*\(/,
       /import\s+.*from/,
-      /export\s+(default|const|function)/
+      /export\s+(default|const|function)/,
+      /document\./,
+      /window\./,
+      /\$\(/  // jQuery
     ],
     fileExtensions: ['js', 'jsx', 'ts', 'tsx'],
-    weight: 1
+    weight: 1,
+    exclusivePatterns: [
+      /console\.(log|error|warn|info)\s*\(/,
+      /document\.getElementById/,
+      /window\.location/
+    ]
   },
   
   python: {
-    keywords: ['def', 'import', 'from', 'print', 'if', 'elif', 'else', 'for', 'while', 'class', 'self'],
+    keywords: ['def', 'import', 'from', 'print', 'if', 'elif', 'else', 'for', 'while', 'class', 'self', 'pass', 'lambda'],
     patterns: [
       /def\s+\w+\s*\(/,
       /print\s*\(/,
       /import\s+\w+/,
       /from\s+\w+\s+import/,
       /#.*$/m,
-      /if\s+__name__\s*==\s*['""]__main__['""]:/
+      /if\s+__name__\s*==\s*['""]__main__['""]:/,
+      /:\s*$/m, // Importante en Python
+      /^\s{4}|\t/m // Indentación
     ],
     fileExtensions: ['py', 'pyw'],
-    weight: 1
+    weight: 1,
+    exclusivePatterns: [
+      /def\s+\w+\s*\([^)]*\)\s*:/,
+      /if\s+__name__\s*==\s*['"]__main__['"]:/,
+      /print\s*\(/
+    ]
   },
   
   'C++': {
-    keywords: ['#include', 'int', 'main', 'cout', 'cin', 'std', 'namespace', 'class', 'public', 'private'],
+    keywords: ['#include', 'int', 'main', 'cout', 'cin', 'std', 'namespace', 'class', 'public', 'private', 'using'],
     patterns: [
       /#include\s*<.*>/,
       /int\s+main\s*\(/,
       /std::/,
       /cout\s*<<|cin\s*>>/,
       /namespace\s+\w+/,
-      /class\s+\w+/
+      /class\s+\w+/,
+      /using\s+namespace/,
+      /#include\s*[<"]/
     ],
     fileExtensions: ['cpp', 'cxx', 'cc', 'c', 'h', 'hpp'],
-    weight: 1
+    weight: 1,
+    exclusivePatterns: [
+      /#include\s*<iostream>/,
+      /std::cout\s*<</,
+      /std::cin\s*>>/
+    ]
   },
   
   html: {
-    keywords: ['<html>', '<head>', '<body>', '<div>', '<p>', '<a>', '<img>', '<!DOCTYPE'],
+    keywords: ['<html>', '<head>', '<body>', '<div>', '<p>', '<a>', '<img>', '<!DOCTYPE', '<script>', '<style>'],
     patterns: [
       /<!\s*DOCTYPE\s+html>/i,
-      /<html.*?>/i,
-      /<head.*?>/i,
-      /<body.*?>/i,
+      /<html[^>]*>/i,
+      /<head[^>]*>/i,
+      /<body[^>]*>/i,
       /<\/\w+>/,
-      /<\w+.*?>/
+      /<\w+[^>]*>/,
+      /<script[^>]*>/i,
+      /<style[^>]*>/i
     ],
     fileExtensions: ['html', 'htm'],
-    weight: 1
+    weight: 1,
+    exclusivePatterns: [
+      /<!DOCTYPE\s+html>/i,
+      /<html[^>]*>/i,
+      /<\/html>/i
+    ]
   },
   
   pascal: {
-    keywords: ['program', 'begin', 'end', 'var', 'const', 'procedure', 'function', 'if', 'then', 'else'],
+    keywords: ['program', 'begin', 'end', 'var', 'const', 'procedure', 'function', 'if', 'then', 'else', 'while', 'do'],
     patterns: [
-      /program\s+\w+;/,
-      /begin\s*$/m,
-      /end\s*[;.]/,
-      /procedure\s+\w+/,
-      /function\s+\w+.*:/,
-      /if\s+.*\s+then/
+      /program\s+\w+\s*;/i,
+      /begin\s*$/mi,
+      /end\s*[;.]/i,
+      /procedure\s+\w+/i,
+      /function\s+\w+.*:/i,
+      /if\s+.*\s+then/i,
+      /var\s*$/mi,
+      /writeln\s*\(/i
     ],
     fileExtensions: ['pas', 'pascal'],
-    weight: 1
+    weight: 1,
+    exclusivePatterns: [
+      /program\s+\w+\s*;/i,
+      /writeln\s*\(/i,
+      /begin\s*$/mi
+    ]
+  },
+  
+  'PL/SQL': {
+    keywords: ['DECLARE', 'BEGIN', 'END', 'PROCEDURE', 'FUNCTION', 'CURSOR', 'EXCEPTION', 'IS', 'AS', 'DBMS_OUTPUT'],
+    patterns: [
+      /DECLARE\s*$/mi,
+      /BEGIN\s*$/mi,
+      /END\s*[;\/]/i,
+      /PROCEDURE\s+\w+/i,
+      /FUNCTION\s+\w+/i,
+      /CURSOR\s+\w+/i,
+      /EXCEPTION\s*$/mi,
+      /DBMS_OUTPUT\.PUT_LINE/i,
+      /\w+%ROWTYPE/i,
+      /\w+%TYPE/i
+    ],
+    fileExtensions: ['plsql', 'pls'],
+    weight: 1,
+    exclusivePatterns: [
+      /DBMS_OUTPUT\.PUT_LINE/i,
+      /\w+%ROWTYPE/i,
+      /\w+%TYPE/i,
+      /DECLARE\s*$/mi
+    ]
+  },
+  
+  'T-SQL': {
+    keywords: ['GO', 'PRINT', 'TRY', 'CATCH', 'TRAN', 'IDENTITY', 'NVARCHAR', 'EXEC', 'SP_', 'RAISERROR'],
+    patterns: [
+      /GO\s*$/mi,
+      /PRINT\s+/i,
+      /BEGIN\s+TRY/i,
+      /BEGIN\s+CATCH/i,
+      /IDENTITY\s*\(/i,
+      /NVARCHAR\s*\(/i,
+      /EXEC\s+/i,
+      /SP_\w+/i,
+      /RAISERROR\s*\(/i,
+      /@@\w+/i
+    ],
+    fileExtensions: ['tsql', 'sql'],
+    weight: 1,
+    exclusivePatterns: [
+      /GO\s*$/mi,
+      /@@\w+/i,
+      /RAISERROR\s*\(/i,
+      /BEGIN\s+TRY/i
+    ]
   },
   
   sql: {
-    keywords: ['SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'JOIN'],
+    keywords: ['SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'JOIN', 'ORDER', 'BY'],
     patterns: [
       /SELECT\s+.*\s+FROM/i,
       /INSERT\s+INTO/i,
@@ -89,36 +174,16 @@ const LANGUAGE_SIGNATURES: { [key: string]: LanguageSignature } = {
       /CREATE\s+TABLE/i,
       /ALTER\s+TABLE/i,
       /DROP\s+TABLE/i,
-      /JOIN\s+/i
+      /JOIN\s+/i,
+      /ORDER\s+BY/i,
+      /GROUP\s+BY/i
     ],
     fileExtensions: ['sql'],
-    weight: 1
-  },
-  
-  'PL/SQL': {
-    keywords: ['DECLARE', 'BEGIN', 'END', 'PROCEDURE', 'FUNCTION', 'CURSOR', 'EXCEPTION'],
-    patterns: [
-      /DECLARE\s*$/m,
-      /BEGIN\s*$/m,
-      /END\s*[;/]/,
-      /PROCEDURE\s+\w+/i,
-      /FUNCTION\s+\w+/i
-    ],
-    fileExtensions: ['plsql'],
-    weight: 1
-  },
-  
-  'T-SQL': {
-    keywords: ['GO', 'PRINT', 'TRY', 'CATCH', 'TRAN', 'IDENTITY', 'NVARCHAR'],
-    patterns: [
-      /GO\s*$/m,
-      /PRINT\s+/i,
-      /TRY\s*{/i,
-      /CATCH\s*{/i,
-      /IDENTITY\s*\(/i
-    ],
-    fileExtensions: ['tsql'],
-    weight: 1
+    weight: 0.8, // Menor peso porque es más genérico
+    exclusivePatterns: [
+      /SELECT\s+.*\s+FROM/i,
+      /CREATE\s+TABLE/i
+    ]
   }
 };
 
@@ -135,24 +200,52 @@ export class LanguageDetector {
       scores[lang] = 0;
     });
     
+    // Limpiar el código para mejor análisis
+    const cleanCode = code.trim();
+    if (!cleanCode) return 'javascript';
+    
+    // Verificar si el código parece ser simplemente texto sin estructura
+    const isPlainText = /^[a-zA-Z\s]+$/.test(cleanCode) && 
+                       !cleanCode.includes('(') && 
+                       !cleanCode.includes('{') && 
+                       !cleanCode.includes(';') && 
+                       !cleanCode.includes('=') &&
+                       !cleanCode.includes(':') &&
+                       cleanCode.split(/\s+/).every(word => word.length < 20);
+    
+    if (isPlainText) {
+      // Si parece texto plano, no detectar ningún lenguaje específico
+      return 'unknown';
+    }
+    
     // Analizar cada lenguaje
     Object.entries(LANGUAGE_SIGNATURES).forEach(([language, signature]) => {
       let score = 0;
       
+      // Verificar patrones exclusivos primero (mayor peso)
+      if (signature.exclusivePatterns) {
+        signature.exclusivePatterns.forEach(pattern => {
+          const matches = cleanCode.match(pattern);
+          if (matches) {
+            score += matches.length * 10; // Muy alto peso para patrones exclusivos
+          }
+        });
+      }
+      
       // Verificar palabras clave
       signature.keywords.forEach(keyword => {
         const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-        const matches = code.match(regex);
+        const matches = cleanCode.match(regex);
         if (matches) {
-          score += matches.length * 2; // Peso mayor para palabras clave
+          score += matches.length * 3; // Peso medio para palabras clave
         }
       });
       
-      // Verificar patrones
+      // Verificar patrones generales
       signature.patterns.forEach(pattern => {
-        const matches = code.match(pattern);
+        const matches = cleanCode.match(pattern);
         if (matches) {
-          score += matches.length * 3; // Peso mayor para patrones específicos
+          score += matches.length * 2; // Peso menor para patrones generales
         }
       });
       
@@ -160,12 +253,32 @@ export class LanguageDetector {
     });
     
     // Encontrar el lenguaje con mayor score
-    const detectedLanguage = Object.entries(scores).reduce((a, b) => 
-      scores[a[0]] > scores[b[0]] ? a : b
-    )[0];
+    const sortedLanguages = Object.entries(scores)
+      .sort(([,a], [,b]) => b - a)
+      .filter(([,score]) => score > 0);
     
-    // Si no hay suficiente evidencia, devolver JavaScript por defecto
-    return scores[detectedLanguage] > 0 ? detectedLanguage : 'javascript';
+    // Requerir un score mínimo para considerar la detección válida
+    if (sortedLanguages.length === 0 || sortedLanguages[0][1] < 2) {
+      return 'unknown'; // En lugar de 'javascript' por defecto
+    }
+    
+    // Si hay empate entre SQL, PL/SQL y T-SQL, usar criterios específicos
+    const topScore = sortedLanguages[0][1];
+    const topLanguages = sortedLanguages.filter(([,score]) => score === topScore);
+    
+    if (topLanguages.length > 1) {
+      const sqlLanguages = topLanguages.filter(([lang]) => 
+        lang.toLowerCase().includes('sql'));
+      
+      if (sqlLanguages.length > 0) {
+        // Preferir el más específico
+        if (sqlLanguages.find(([lang]) => lang === 'PL/SQL')) return 'PL/SQL';
+        if (sqlLanguages.find(([lang]) => lang === 'T-SQL')) return 'T-SQL';
+        return 'sql';
+      }
+    }
+    
+    return sortedLanguages[0][0];
   }
   
   /**
@@ -192,11 +305,27 @@ export class LanguageDetector {
     if (fileName) {
       const extensionLanguage = this.detectByExtension(fileName);
       
-      // Si la extensión es específica y el contenido no es muy claro, usar la extensión
-      const contentScore = this.getConfidenceScore(code, contentLanguage);
-      if (contentScore < 10 && extensionLanguage !== 'javascript') {
+      // Si el contenido es desconocido, usar la extensión si es específica
+      if (contentLanguage === 'unknown' && extensionLanguage !== 'javascript') {
         return extensionLanguage;
       }
+      
+      // Si la extensión es específica y el contenido no es muy claro, usar la extensión
+      const contentScore = this.getConfidenceScore(code, contentLanguage);
+      if (contentScore < 15 && extensionLanguage !== 'javascript') {
+        return extensionLanguage;
+      }
+      
+      // Si hay conflicto entre sql/plsql/tsql, usar la extensión
+      if (['sql', 'PL/SQL', 'T-SQL'].includes(contentLanguage) && 
+          ['sql', 'PL/SQL', 'T-SQL'].includes(extensionLanguage)) {
+        return extensionLanguage;
+      }
+    }
+    
+    // Si no se pudo detectar un lenguaje válido, devolver 'unknown'
+    if (contentLanguage === 'unknown') {
+      return 'unknown';
     }
     
     return contentLanguage;
