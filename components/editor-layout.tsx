@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import CodeEditor from '@/components/code-editor';
-import CodeAnalysis from '@/components/code-analisis';
+import CodeAnalysisAPI from '@/components/code-analysis-api';
 import Header from '@/components/headert';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Badge } from '@/components/ui/badge';
@@ -78,7 +78,7 @@ export default function EditorLayout() {
 
   // Nueva función para ejecutar el compilador manualmente
   const handleRunCompiler = async () => {
-    if (!code.trim()) return;
+    if (!code || code.length === 0) return;
     
     setIsAnalyzing(true);
     setShouldAnalyze(true);
@@ -185,7 +185,7 @@ export default function EditorLayout() {
                     <Button 
                       size="sm" 
                       onClick={handleRunCompiler}
-                      disabled={!code.trim() || isAnalyzing}
+                      disabled={!code || code.length === 0 || isAnalyzing}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <Play className="h-3 w-3 mr-1" />
@@ -213,12 +213,14 @@ export default function EditorLayout() {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={40} minSize={20}>
-          <CodeAnalysis 
+          <CodeAnalysisAPI 
             code={code} 
-            markers={markers} 
             language={language}
             shouldAnalyze={shouldAnalyze}
-            isAnalyzing={isAnalyzing}
+            onAnalysisComplete={(canExecute) => {
+              setIsAnalyzing(false);
+              // Aquí podrías agregar lógica adicional cuando el análisis se complete
+            }}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

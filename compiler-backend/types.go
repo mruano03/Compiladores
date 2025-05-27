@@ -2,6 +2,26 @@ package main
 
 import "time"
 
+// TokenType representa los tipos de tokens
+type TokenType string
+
+// Constantes para tipos de tokens
+const (
+	WHITESPACE TokenType = "WHITESPACE"
+	COMMENT    TokenType = "COMMENT"
+	STRING     TokenType = "STRING"
+	NUMBER     TokenType = "NUMBER"
+	FUNCTION   TokenType = "FUNCTION"
+	CLASS      TokenType = "CLASS"
+	VARIABLE   TokenType = "VARIABLE"
+	CONSTANT   TokenType = "CONSTANT"
+	KEYWORD    TokenType = "KEYWORD"
+	OPERATOR   TokenType = "OPERATOR"
+	DELIMITER  TokenType = "DELIMITER"
+	IDENTIFIER TokenType = "IDENTIFIER"
+	UNKNOWN    TokenType = "UNKNOWN"
+)
+
 // AnalyzeRequest representa la solicitud de análisis de código
 type AnalyzeRequest struct {
 	Code     string `json:"code"`

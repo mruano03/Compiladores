@@ -26,9 +26,9 @@ func AnalyzeCode(code, language string) AnalyzeResponse {
 		ProcessingTime: 0,
 	}
 
-	// Fase 1: Análisis Léxico
-	lexer := NewLexer(code, language)
-	tokens, lexErrors := lexer.Tokenize()
+	// Fase 1: Análisis Léxico (usando expresiones regulares)
+	regexAnalyzer := NewRegexAnalyzer(code, language)
+	tokens, lexErrors := regexAnalyzer.TokenizeWithRegex()
 
 	response.Tokens = tokens
 	response.Errors = append(response.Errors, lexErrors...)
@@ -67,8 +67,19 @@ func AnalyzeCode(code, language string) AnalyzeResponse {
 
 	// Ejecutar si es posible
 	if response.CanExecute {
-		executor := NewExecutor(language)
-		result := executor.Execute(code, response.SymbolTable)
+		var result ExecutionResult
+
+		// Verificar configuración para decidir tipo de ejecución
+		if GlobalConfig.EnableRealExecution {
+			// Usar el ejecutor real para compilación y ejecución real
+			realExecutor := NewRealExecutor(language)
+			result = realExecutor.Execute(code, response.SymbolTable)
+		} else {
+			// Usar el ejecutor simulado
+			executor := NewExecutor(language)
+			result = executor.Execute(code, response.SymbolTable)
+		}
+
 		response.ExecutionResult = &result
 	}
 

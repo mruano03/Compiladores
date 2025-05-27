@@ -1,6 +1,6 @@
 # Compilador Backend - API REST en Go
 
-Este es el backend del simulador de compilador que analiza código en múltiples lenguajes de programación.
+Este es el backend que funciona como api para el compilador frontend.
 
 ## Características
 
@@ -95,7 +95,6 @@ compiler-backend/
 ├── executor.go      # Simulador de ejecución
 ├── analyzer.go      # Coordinador principal
 ├── go.mod           # Dependencias de Go
-└── README.md        # Esta documentación
 ```
 
 ## Ejemplos de Uso
@@ -114,15 +113,6 @@ curl -X POST http://localhost:8080/api/v1/analyze \
   -d '{"code": "CREATE TABLE usuarios (id INT, nombre VARCHAR(50))", "language": "tsql"}'
 ```
 
-## Desarrollo
-
-Para contribuir al proyecto:
-
-1. Fork el repositorio
-2. Crea una rama para tu feature
-3. Implementa los cambios
-4. Ejecuta las pruebas
-5. Envía un pull request
 
 ## Arquitectura
 
@@ -137,6 +127,3 @@ El compilador sigue la arquitectura clásica de compiladores:
 
 El servidor está configurado para aceptar requests desde:
 - http://localhost:3000
-- http://localhost:3001
-
-Para modificar los orígenes permitidos, edita el archivo `main.go`. 

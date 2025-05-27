@@ -1,0 +1,8 @@
+🔧 Configuración del compilador:
+   - Ejecución real: true
+   - Timeout: 5 segundos
+   - Tamaño máximo: 1048576 bytes
+   - Lenguajes: [cpp python javascript pascal html tsql plsql]
+   ✅ Patrones regex validados correctamente
+
+🚀 Servidor del compilador iniciado en puerto 8080

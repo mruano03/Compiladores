@@ -1,234 +1,176 @@
-# Compilador - Proyecto en grupo 
+# Compilador Universitario - Proyecto de Compiladores 2025
 
-Un compilador avanzado desarrollado en Next.js que implementa análisis léxico, sintáctico y semántico para múltiples lenguajes de programación.
+**Universidad Mariano Gálvez de Guatemala**  
+**Campus Jutiapa - Ingeniería en Sistemas**  
+**Curso: Compiladores**
 
-## 🚀 Características Principales
+## 🎯 Descripción del Proyecto
 
-### ✅ Funcionalidades Implementadas
+Simulador de compilador completo que analiza código en múltiples lenguajes de programación, desarrollado como proyecto universitario. El sistema realiza análisis léxico, sintáctico y semántico, y **ahora incluye compilación y ejecución real** del código.
 
-- **Análisis Léxico**: Identificación y clasificación de tokens
-- **Análisis Sintáctico**: Verificación de estructura y gramática
-- **Análisis Semántico**: Validación de tipos y semántica del código
-- **Detección Automática de Lenguaje**: Basada en contenido y extensión de archivo
-- **Tabla de Símbolos**: Gestión de variables, funciones y constantes
-- **Simulación de Ejecución**: Interpretación básica del código analizado
-- **Interfaz Moderna**: Editor con resaltado de sintaxis y análisis en tiempo real
-- **Soporte Multi-lenguaje**: 7 lenguajes de programación soportados
+## 🏗️ Arquitectura del Sistema
 
-### 🔧 Lenguajes Soportados
+### Backend (Go) - Compilación Real
+- **Ubicación**: `./compiler-backend/`
+- **Tecnología**: Go 1.21+ con Gorilla Mux y CORS
+- **Puerto**: 8080
+- **Características**:
+  - ✅ **Compilación real de C++** usando `g++`
+  - ✅ **Ejecución real de Python** usando intérprete Python
+  - ✅ **Ejecución real de JavaScript** usando Node.js
+  - ✅ **Procesamiento de HTML** con validación
+  - ✅ **Análisis avanzado de SQL** (T-SQL/PL-SQL)
+  - ✅ **Soporte para Pascal** (con Free Pascal si está disponible)
 
-1. **JavaScript** - Análisis completo con detección de ES6+
-2. **Python** - Verificación de indentación y sintaxis
-3. **C++** - Validación de includes y función main
-4. **HTML** - Verificación de etiquetas balanceadas
-5. **Pascal** - Análisis de BEGIN/END y procedimientos
-6. **PL/SQL** - Comandos SQL y procedimientos almacenados
-7. **T-SQL** - Sintaxis específica de SQL Server
+### Frontend (Next.js) - Interfaz Moderna
+- **Ubicación**: Raíz del proyecto
+- **Tecnología**: Next.js 14 + TypeScript + Tailwind CSS
+- **Puerto**: 3000
+- **Características**:
+  - 🎨 Interfaz moderna y responsiva
+  - 📊 Visualización en tiempo real del análisis
+  - 🔄 Conexión API con el backend
+  - 📈 Métricas de rendimiento
 
-### 📊 Tipos de Análisis
+## 🚀 Lenguajes Soportados
 
-#### Análisis Léxico
-- Clasificación de tokens por tipo
-- Identificación de palabras reservadas
-- Detección de operadores y delimitadores
-- Manejo de cadenas y números
-- Identificación de comentarios
+| Lenguaje | Análisis | Compilación Real | Estado |
+|----------|----------|------------------|--------|
+| **C++** | ✅ Completo | ✅ g++ | 🟢 Funcional |
+| **Python** | ✅ Completo | ✅ Intérprete | 🟢 Funcional |
+| **JavaScript** | ✅ Completo | ✅ Node.js | 🟢 Funcional |
+| **HTML** | ✅ Completo | ✅ Validación | 🟢 Funcional |
+| **T-SQL** | ✅ Completo | ✅ Simulación | 🟢 Funcional |
+| **PL-SQL** | ✅ Completo | ✅ Simulación | 🟢 Funcional |
+| **Pascal** | ✅ Completo | ⚠️ Free Pascal | 🟡 Opcional |
 
-#### Análisis Sintáctico
-- Verificación de símbolos balanceados
-- Validación de declaraciones de funciones
-- Verificación de estructura específica por lenguaje
-- Detección de errores de sintaxis
+## 🔧 Características del Compilador
 
-#### Análisis Semántico
-- Verificación de variables declaradas
-- Validación de llamadas a funciones
-- Compatibilidad de tipos básica
-- Análisis de alcance de variables
+### Análisis Completo
+- **Análisis Léxico**: Tokenización con expresiones regulares
+- **Análisis Sintáctico**: Generación de árbol sintáctico
+- **Análisis Semántico**: Tabla de símbolos y verificación de tipos
+- **Detección de Errores**: Clasificación por tipo y severidad
+- **Ejecución Real**: Compilación y ejecución de código real
 
-## 🛠️ Tecnologías Utilizadas
+### Funcionalidades Avanzadas
+- 🔍 **Detección automática de lenguaje**
+- ⚡ **Compilación en tiempo real**
+- 🛡️ **Sandboxing de seguridad** (timeout de 5 segundos)
+- 📊 **Métricas de rendimiento**
+- 🗂️ **Gestión de archivos temporales**
+- 🌐 **API REST completa**
 
-- **Frontend**: Next.js 15, React 19, TypeScript
-- **Editor**: Monaco Editor (VS Code)
-- **UI**: Tailwind CSS, Radix UI, Lucide Icons
-- **Análisis**: Expresiones regulares personalizadas
-- **Temas**: next-themes para modo claro/oscuro
+## 📋 Requisitos del Sistema
 
-## 📁 Estructura del Proyecto
-
-```
-Compiladores/
-├── app/                    # Aplicación Next.js
-│   ├── layout.tsx         # Layout principal
-│   ├── page.tsx           # Página principal
-│   └── globals.css        # Estilos globales
-├── components/            # Componentes React
-│   ├── ui/               # Componentes de interfaz
-│   ├── code-editor.tsx   # Editor de código
-│   ├── code-analisis.tsx # Panel de análisis
-│   ├── editor-layout.tsx # Layout del editor
-│   ├── file-upload.tsx   # Subida de archivos
-│   └── headert.tsx       # Header de la aplicación
-├── lib/                  # Utilidades y lógica
-│   ├── compiler-analyzer.ts    # Analizador principal
-│   ├── language-detector.ts    # Detector de lenguajes
-│   ├── code-analyzer.ts        # Análisis básico
-│   └── constants.ts            # Constantes
-└── hooks/                # Hooks personalizados
-    └── use-toast.ts      # Hook para notificaciones
-```
-
-## 🚀 Instalación y Uso
-
-### Prerrequisitos
-- Node.js 18+ 
-- npm o yarn
-
-### Instalación
-
-1. **Clonar el repositorio**
+### Para Compilación Real
 ```bash
-git clone https://github.com/mruano03/Compiladores.git
-cd Compiladores
+# C++
+sudo apt install g++          # Linux
+brew install gcc              # macOS
+# Windows: Visual Studio o MinGW
+
+# Python
+python3 --version            # Verificar instalación
+
+# JavaScript
+node --version               # Verificar Node.js
+
+# Pascal (Opcional)
+sudo apt install fpc         # Free Pascal Compiler
 ```
 
-2. **Instalar dependencias**
+### Para el Proyecto
+- **Go**: 1.21 o superior
+- **Node.js**: 18 o superior
+- **npm**: Para dependencias del frontend
+
+## 🚀 Instalación y Ejecución
+
+### Opción 1: Script Automático
+```bash
+# Ejecutar todo el entorno de desarrollo
+./start-dev.sh
+```
+
+### Opción 2: Manual
+
+#### Backend (Terminal 1)
+```bash
+cd compiler-backend
+go build
+./compiler-backend
+```
+
+#### Frontend (Terminal 2)
 ```bash
 npm install
-```
-
-3. **Ejecutar en desarrollo**
-```bash
 npm run dev
 ```
 
-4. **Abrir en el navegador**
-```
-http://localhost:3000
-```
+## 🌐 Endpoints de la API
 
-### Uso de la Aplicación
+### Análisis de Código
+```http
+POST /api/v1/analyze
+Content-Type: application/json
 
-1. **Escribir Código**: Usa el editor de la izquierda para escribir o pegar código
-2. **Subir Archivos**: Haz clic en el botón de subir para cargar archivos (.txt, .js, .py, .cpp, .html, .sql, .pas)
-3. **Análisis Automático**: El análisis se ejecuta en tiempo real
-4. **Ver Resultados**: Revisa los paneles de la derecha para:
-   - Errores del compilador
-   - Tabla de tokens
-   - Tabla de símbolos
-   - Resultado de ejecución
-   - Estadísticas del código
-
-## 📋 Funcionalidades por Panel
-
-### Panel Compilador
-- Resumen de errores por tipo (léxico, sintáctico, semántico)
-- Detalles de cada error con ubicación
-- Estado de ejecución del código
-
-### Panel Tokens
-- Lista completa de tokens identificados
-- Clasificación por tipo
-- Ubicación línea/columna
-
-### Panel Símbolos
-- Variables, funciones y constantes
-- Tipos de datos detectados
-- Ámbito y ubicación
-
-### Panel Ejecución
-- Simulación de ejecución del código
-- Resultados de operaciones básicas
-- Estado de ejecución
-
-### Panel Estadísticas
-- Métricas del código (líneas, caracteres, palabras)
-- Complejidad calculada
-- Número de funciones
-
-## 🎯 Casos de Uso
-
-### Ejemplo JavaScript
-```javascript
-function calcularFactorial(n) {
-  if (n === 0 || n === 1) {
-    return 1;
-  }
-  return n * calcularFactorial(n - 1);
+{
+  "code": "print('Hello World')",
+  "language": "python"
 }
-
-console.log(calcularFactorial(5));
 ```
 
-### Ejemplo SQL
-```sql
-CREATE TABLE usuarios (
-  id INT PRIMARY KEY,
-  nombre VARCHAR(50),
-  email VARCHAR(100)
-);
-
-INSERT INTO usuarios VALUES (1, 'Juan', 'juan@email.com');
+### Estado del Servidor
+```http
+GET /api/v1/health
 ```
 
-### Ejemplo Python
+### Configuración
+```http
+GET /api/v1/config
+```
+
+## 📊 Ejemplos de Uso
+
+### Python - Ejecución Real
 ```python
-def fibonacci(n):
-    if n <= 1:
-        return n
-    return fibonacci(n-1) + fibonacci(n-2)
+def suma(a, b):
+    return a + b
 
-print(fibonacci(10))
+resultado = suma(10, 20)
+print(f"La suma es: {resultado}")
 ```
 
-##Ejemplo Pascal
-```pascal
-program HelloWorld;
-begin
-  writeln('Hello, World!');
-end.
-```
-
-##Ejemplo PL/SQL
-```sql
-CREATE TABLE usuarios (
-  id INT PRIMARY KEY,
-  nombre VARCHAR(50),
-  email VARCHAR(100)
-);
-
-INSERT INTO usuarios VALUES (1, 'Juan', 'juan@email.com');
-```
-
-##Ejemplo C++
+### C++ - Compilación Real
 ```cpp
 #include <iostream>
 using namespace std;
 
 int main() {
-  cout << "Hello, World!" << endl;
-  return 0;
+    cout << "¡Hola Mundo!" << endl;
+    return 0;
 }
 ```
 
-##Ejemplo HTML
-```html
-  <!DOCTYPE html>
-  <html lang="es">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Página Web</title>
+### JavaScript - Node.js
+```javascript
+function saludar(nombre) {
+    console.log(`¡Hola ${nombre}!`);
+}
+
+saludar("Mundo");
 ```
 
-##Ejemplo T-SQL
-```sql
-CREATE TABLE usuarios (
-  id INT PRIMARY KEY,
-  nombre VARCHAR(50),
-  email VARCHAR(100)
-);
 
-INSERT INTO usuarios VALUES (1, 'Juan', 'juan@email.com');
-```
+
+
+
+
+
+
+
+
+
+
 

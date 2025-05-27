@@ -1,0 +1,128 @@
+{
+  "name": "Compilador Universitario",
+  "version": "2.0.0",
+  "description": "Simulador de compilador para análisis léxico, sintáctico y semántico",
+  "university": "Universidad Mariano Gálvez de Guatemala",
+  "course": "Compiladores",
+  "campus": "Jutiapa",
+  "year": 2025,
+  "architecture": {
+    "backend": {
+      "language": "Go",
+      "version": "1.21+",
+      "port": 8080,
+      "framework": "Gorilla Mux",
+      "features": [
+        "API REST",
+        "Análisis léxico",
+        "Análisis sintáctico", 
+        "Análisis semántico",
+        "Simulación de ejecución",
+        "Detección automática de lenguaje"
+      ]
+    },
+    "frontend": {
+      "framework": "Next.js",
+      "version": "14",
+      "language": "TypeScript",
+      "port": 3000,
+      "ui": "Tailwind CSS + Radix UI",
+      "features": [
+        "Editor de código con resaltado",
+        "Interfaz responsiva",
+        "Análisis en tiempo real",
+        "Carga de archivos",
+        "Temas claro/oscuro"
+      ]
+    }
+  },
+  "supportedLanguages": [
+    {
+      "name": "C++",
+      "extensions": [".cpp", ".cxx", ".cc", ".c", ".h", ".hpp"],
+      "features": ["includes", "main function", "classes", "namespaces"]
+    },
+    {
+      "name": "HTML",
+      "extensions": [".html", ".htm"],
+      "features": ["tags", "attributes", "comments", "doctype"]
+    },
+    {
+      "name": "JavaScript",
+      "extensions": [".js", ".jsx", ".ts", ".tsx"],
+      "features": ["functions", "variables", "classes", "modules", "async/await"]
+    },
+    {
+      "name": "Pascal",
+      "extensions": [".pas", ".pascal"],
+      "features": ["program", "procedures", "functions", "begin/end blocks"]
+    },
+    {
+      "name": "PL/SQL",
+      "extensions": [".sql", ".plsql"],
+      "features": ["procedures", "functions", "packages", "cursors", "exceptions"]
+    },
+    {
+      "name": "Python",
+      "extensions": [".py", ".pyw"],
+      "features": ["functions", "classes", "indentation", "imports", "decorators"]
+    },
+    {
+      "name": "T-SQL",
+      "extensions": [".sql", ".tsql"],
+      "features": ["tables", "procedures", "functions", "triggers", "views"]
+    }
+  ],
+  "analysisPhases": {
+    "lexical": {
+      "description": "Tokenización del código fuente",
+      "outputs": ["tokens", "lexical errors"]
+    },
+    "syntax": {
+      "description": "Generación del árbol sintáctico abstracto",
+      "outputs": ["parse tree", "syntax errors"]
+    },
+    "semantic": {
+      "description": "Verificación de tipos y tabla de símbolos",
+      "outputs": ["symbol table", "semantic errors"]
+    },
+    "execution": {
+      "description": "Simulación de la ejecución del código",
+      "outputs": ["execution result", "runtime output"]
+    }
+  },
+  "development": {
+    "requirements": {
+      "go": "1.21+",
+      "node": "18+",
+      "npm": "latest"
+    },
+    "scripts": {
+      "start": "./start-dev.sh",
+      "backend": "cd compiler-backend && ./compiler-backend",
+      "frontend": "npm run dev",
+      "build": "npm run build",
+      "test-api": "curl http://localhost:8080/api/v1/health"
+    },
+    "ports": {
+      "backend": 8080,
+      "frontend": 3000
+    }
+  },
+  "educational": {
+    "objectives": [
+      "Comprender las fases de un compilador",
+      "Implementar análisis léxico, sintáctico y semántico",
+      "Trabajar con múltiples lenguajes de programación",
+      "Desarrollar una arquitectura cliente-servidor",
+      "Aplicar conceptos de ingeniería de software"
+    ],
+    "learningOutcomes": [
+      "Análisis de código fuente",
+      "Detección y manejo de errores",
+      "Construcción de tablas de símbolos",
+      "Generación de árboles sintácticos",
+      "Simulación de ejecución"
+    ]
+  }
+} 
