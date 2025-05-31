@@ -1,116 +1,117 @@
-# Compilador Universitario - Proyecto de Compiladores 2025
+<div align="center">
 
-**Universidad Mariano Gálvez de Guatemala**  
-**Campus Jutiapa - Ingeniería en Sistemas**  
-**Curso: Compiladores**
+# 🚀 Compilador- Proyecto 
 
-## 🎯 Descripción del Proyecto
+### *Un compilador completo y moderno para múltiples lenguajes de programación*
 
-Simulador de compilador completo que analiza código en múltiples lenguajes de programación, desarrollado como proyecto universitario. El sistema realiza análisis léxico, sintáctico y semántico, y **ahora incluye compilación y ejecución real** del código.
+[![Next.js](https://img.shields.io/badge/Next.js-14.0-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.0-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 
-## 🏗️ Arquitectura del Sistema
+**Universidad Mariano Gálvez de Guatemala** • **Campus Jutiapa** • **Ingeniería en Sistemas**
 
-### Backend (Go) - Compilación Real
-- **Ubicación**: `./compiler-backend/`
-- **Tecnología**: Go 1.21+ con Gorilla Mux y CORS
-- **Puerto**: 8080
-- **Características**:
-  - ✅ **Compilación real de C++** usando `g++`
-  - ✅ **Ejecución real de Python** usando intérprete Python
-  - ✅ **Ejecución real de JavaScript** usando Node.js
-  - ✅ **Procesamiento de HTML** con validación
-  - ✅ **Análisis avanzado de SQL** (T-SQL/PL-SQL)
-  - ✅ **Soporte para Pascal** (con Free Pascal si está disponible)
 
-### Frontend (Next.js) - Interfaz Moderna
-- **Ubicación**: Raíz del proyecto
-- **Tecnología**: Next.js 14 + TypeScript + Tailwind CSS
-- **Puerto**: 3000
-- **Características**:
-  - 🎨 Interfaz moderna y responsiva
-  - 📊 Visualización en tiempo real del análisis
-  - 🔄 Conexión API con el backend
-  - 📈 Métricas de rendimiento
+</div>
 
-## 🚀 Lenguajes Soportados
+## ✨ **¿Qué es este proyecto?**
 
-| Lenguaje | Análisis | Compilación Real | Estado |
-|----------|----------|------------------|--------|
-| **C++** | ✅ Completo | ✅ g++ | 🟢 Funcional |
-| **Python** | ✅ Completo | ✅ Intérprete | 🟢 Funcional |
-| **JavaScript** | ✅ Completo | ✅ Node.js | 🟢 Funcional |
-| **HTML** | ✅ Completo | ✅ Validación | 🟢 Funcional |
-| **T-SQL** | ✅ Completo | ✅ Simulación | 🟢 Funcional |
-| **PL-SQL** | ✅ Completo | ✅ Simulación | 🟢 Funcional |
-| **Pascal** | ✅ Completo | ⚠️ Free Pascal | 🟡 Opcional |
+Un **simulador de compilador completo** que no solo analiza código, sino que **compila y ejecuta** programas reales en múltiples lenguajes. Combina teoría de compiladores con implementación práctica usando tecnologías modernas.
 
-## 🔧 Características del Compilador
 
-### Análisis Completo
-- **Análisis Léxico**: Tokenización con expresiones regulares
-- **Análisis Sintáctico**: Generación de árbol sintáctico
-- **Análisis Semántico**: Tabla de símbolos y verificación de tipos
-- **Detección de Errores**: Clasificación por tipo y severidad
-- **Ejecución Real**: Compilación y ejecución de código real
+## 🏗️ **Arquitectura del Sistema**
 
-### Funcionalidades Avanzadas
-- 🔍 **Detección automática de lenguaje**
-- ⚡ **Compilación en tiempo real**
-- 🛡️ **Sandboxing de seguridad** (timeout de 5 segundos)
-- 📊 **Métricas de rendimiento**
-- 🗂️ **Gestión de archivos temporales**
-- 🌐 **API REST completa**
+<table>
+<tr>
+<td width="50%">
 
-## 📋 Requisitos del Sistema
-
-### Para Compilación Real
-```bash
-# C++
-sudo apt install g++          # Linux
-brew install gcc              # macOS
-# Windows: Visual Studio o MinGW
-
-# Python
-python3 --version            # Verificar instalación
-
-# JavaScript
-node --version               # Verificar Node.js
-
-# Pascal (Opcional)
-sudo apt install fpc         # Free Pascal Compiler
+### 🖥️ **Backend Potente**
+```go
+🔧 Go 1.21+ con Gorilla Mux
+🌐 API REST completa
+🔒 Sandboxing de seguridad
+⚡ Compilación en tiempo real
+🛡️ CORS configurado
 ```
 
-### Para el Proyecto
-- **Go**: 1.21 o superior
-- **Node.js**: 18 o superior
-- **npm**: Para dependencias del frontend
+</td>
+<td width="50%">
 
-## 🚀 Instalación y Ejecución
+### 🎨 **Frontend Moderno**
+```typescript
+⚛️ Next.js 14 + TypeScript
+🎨 Tailwind CSS + shadcn/ui
+📱 Diseño responsivo
+📊 Visualización en tiempo real
+🔄 Hot reload
+```
 
-### Opción 1: Script Automático
+</td>
+</tr>
+</table>
+
+## 🌍 **Lenguajes Soportados**
+
+<div align="center">
+
+| Lenguaje | Estado | Funcionalidad | Tecnología |
+|:--------:|:------:|:------------:|:----------:|
+| ![C++](https://img.shields.io/badge/C++-00599C?style=flat&logo=c%2B%2B&logoColor=white) | 🟢 **Completo** | Compilación Real | `g++` |
+| ![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white) | 🟢 **Completo** | Ejecución Real | `python3` |
+| ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black) | 🟢 **Completo** | Ejecución Real | `node.js` |
+| ![HTML](https://img.shields.io/badge/HTML-E34F26?style=flat&logo=html5&logoColor=white) | 🟢 **Completo** | Validación | Análisis DOM |
+| ![SQL](https://img.shields.io/badge/SQL-336791?style=flat&logo=postgresql&logoColor=white) | 🟢 **Completo** | T-SQL/PL-SQL | Simulación |
+| ![Pascal](https://img.shields.io/badge/Pascal-B83998?style=flat&logo=delphi&logoColor=white) | 🟡 **Opcional** | Compilación | Free Pascal |
+
+</div>
+
+## 🚀 **Inicio Rápido**
+
+### 🔧 **Instalación Automática**
+
 ```bash
-# Ejecutar todo el entorno de desarrollo
+# 1️⃣ Clona el repositorio
+git clone <repository-url>
+cd Compiladores
+
+# 2️⃣ Ejecuta el entorno completo
 ./start-dev.sh
+
+# 3️⃣ ¡Listo! Abre tu navegador en:
+# 🌐 Frontend: http://localhost:3000
+# 🔌 Backend:  http://localhost:8080
 ```
 
-### Opción 2: Manual
 
-#### Backend (Terminal 1)
-```bash
-cd compiler-backend
-go build
-./compiler-backend
+<details>
+
+## 🎯 **Características Principales**
+
+<div align="center">
+
+### 🔬 **Análisis Completo**
+
+</div>
+
+```mermaid
+flowchart TD
+    A[📝 Código Fuente] --> B[🔍 Análisis Léxico]
+    B --> C[📋 Tokens]
+    C --> D[🌳 Análisis Sintáctico]
+    D --> E[🌲 AST]
+    E --> F[🧠 Análisis Semántico]
+    F --> G[📊 Tabla de Símbolos]
+    G --> H[⚡ Compilación/Ejecución]
+    H --> I[✅ Resultado]
 ```
+## 🌐 **API REST**
 
-#### Frontend (Terminal 2)
-```bash
-npm install
-npm run dev
-```
+### **Endpoints Principales**
 
-## 🌐 Endpoints de la API
+<details>
+<summary>📡 <strong>Ver documentación completa de la API</strong></summary>
 
-### Análisis de Código
+#### **Análisis de Código**
 ```http
 POST /api/v1/analyze
 Content-Type: application/json
@@ -121,46 +122,103 @@ Content-Type: application/json
 }
 ```
 
-### Estado del Servidor
+#### **Estado del Servidor**
 ```http
 GET /api/v1/health
 ```
 
-### Configuración
+#### **Configuración**
 ```http
 GET /api/v1/config
 ```
 
-## 📊 Ejemplos de Uso
+</details>
 
-### Python - Ejecución Real
+## 📚 **Ejemplos de Código**
+
+<details>
+<summary>🐍 <strong>Python - Ejecución Real</strong></summary>
+
 ```python
-def suma(a, b):
-    return a + b
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
 
-resultado = suma(10, 20)
-print(f"La suma es: {resultado}")
+# Calcular los primeros 10 números de Fibonacci
+for i in range(10):
+    print(f"F({i}) = {fibonacci(i)}")
 ```
 
-### C++ - Compilación Real
+</details>
+
+<details>
+<summary>🔨 <strong>C++ - Compilación Real</strong></summary>
+
 ```cpp
 #include <iostream>
-using namespace std;
+#include <vector>
+#include <algorithm>
 
 int main() {
-    cout << "¡Hola Mundo!" << endl;
+    std::vector<int> numeros = {64, 34, 25, 12, 22, 11, 90};
+    
+    std::sort(numeros.begin(), numeros.end());
+    
+    std::cout << "Números ordenados: ";
+    for(int num : numeros) {
+        std::cout << num << " ";
+    }
+    
     return 0;
 }
 ```
 
-### JavaScript - Node.js
+</details>
+
+<details>
+<summary>📦 <strong>JavaScript - Node.js</strong></summary>
+
 ```javascript
-function saludar(nombre) {
-    console.log(`¡Hola ${nombre}!`);
+class Calculator {
+    static add(a, b) { return a + b; }
+    static multiply(a, b) { return a * b; }
+    static power(base, exp) { return Math.pow(base, exp); }
 }
 
-saludar("Mundo");
+const result = Calculator.power(
+    Calculator.add(5, 3), 
+    Calculator.multiply(2, 1)
+);
+
+console.log(`Resultado: ${result}`);
 ```
+
+</details>
+
+
+
+## 🛠️ **Estructura del Proyecto**
+
+```
+Compiladores/
+├── 🎨 app/                    # Frontend Next.js
+├── 🔧 compiler-backend/       # Backend Go
+├── 🧩 components/            # Componentes UI
+├── 🎣 hooks/                 # React Hooks
+├── 📚 lib/                   # Utilidades
+├── 🌍 public/                # Archivos públicos
+├── 🚀 start-dev.sh          # Script de inicio
+└── 📋 package.json          # Dependencias
+```
+
+
+<div align="center">
+
+### 🎓 **Proyecto Académico - Universidad Mariano Gálvez**
+
+
+</div>
 
 
 
