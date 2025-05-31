@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
@@ -63,7 +64,16 @@ func AnalyzeCode(code, language string) AnalyzeResponse {
 	}
 
 	// Determinar si se puede ejecutar
-	response.CanExecute = len(response.Errors) == 0 || !hasErrorSeverity(response.Errors)
+	// Para HTML, permitir ejecución aunque haya errores del analizador
+	fmt.Printf("DEBUG: language='%s', errors=%d\n", language, len(response.Errors))
+	if language == "html" {
+		fmt.Printf("DEBUG: HTML detected, setting canExecute=true\n")
+		response.CanExecute = true // HTML siempre puede "ejecutarse" (renderizarse)
+	} else {
+		fmt.Printf("DEBUG: Not HTML, checking errors\n")
+		response.CanExecute = len(response.Errors) == 0 || !hasErrorSeverity(response.Errors)
+	}
+	fmt.Printf("DEBUG: Final canExecute=%v\n", response.CanExecute)
 
 	// Ejecutar si es posible
 	if response.CanExecute {

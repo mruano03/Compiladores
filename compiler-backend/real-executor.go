@@ -3,9 +3,14 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -333,11 +338,15 @@ func (e *RealExecutor) executePascalReal(code string) ExecutionResult {
 	}
 }
 
-// executeHTMLReal valida y procesa HTML real
+// executeHTMLReal valida, procesa y ejecuta HTML real
 func (e *RealExecutor) executeHTMLReal(code string) ExecutionResult {
 	// Crear archivo HTML
 	htmlFile := filepath.Join(e.workingDir, "index.html")
-	if err := ioutil.WriteFile(htmlFile, []byte(code), 0644); err != nil {
+	
+	// Mejorar el HTML con estructura básica si no la tiene
+	enhancedHTML := e.enhanceHTML(code)
+	
+	if err := ioutil.WriteFile(htmlFile, []byte(enhancedHTML), 0644); err != nil {
 		return ExecutionResult{
 			Success: false,
 			Output:  "",
@@ -346,12 +355,25 @@ func (e *RealExecutor) executeHTMLReal(code string) ExecutionResult {
 	}
 	e.tempFiles = append(e.tempFiles, htmlFile)
 
-	// Validación básica de HTML
-	validation := e.validateHTML(code)
+	// Validación detallada de HTML
+	validation := e.validateHTMLDetailed(enhancedHTML)
+	
+	// Crear servidor web temporal para mostrar el HTML
+	serverInfo := e.createTemporaryWebServer(htmlFile)
+	
+	// Intentar abrir en el navegador si es posible
+	browserResult := e.openInBrowser(serverInfo.URL)
 
+	output := fmt.Sprintf("🌐 HTML Ejecutado Exitosamente:\n")
+	output += fmt.Sprintf("📁 Archivo creado: %s\n", htmlFile)
+	output += fmt.Sprintf("🌍 Servidor web: %s\n", serverInfo.URL)
+	output += fmt.Sprintf("⏱️  Servidor activo por: %d segundos\n", serverInfo.Duration)
+	output += fmt.Sprintf("🌊 %s\n", browserResult)
+	output += fmt.Sprintf("\n%s", validation)
+	
 	return ExecutionResult{
 		Success: true,
-		Output:  fmt.Sprintf("🌐 HTML Procesado:\n✅ Archivo HTML creado: %s\n%s", htmlFile, validation),
+		Output:  output,
 		Error:   "",
 	}
 }
@@ -375,34 +397,266 @@ func (e *RealExecutor) isCommandAvailable(command string) bool {
 	return err == nil
 }
 
+// ServerInfo contiene información del servidor web temporal
+type ServerInfo struct {
+	URL      string
+	Port     int
+	Duration int
+}
+
+// enhanceHTML mejora el código HTML agregando estructura básica si no la tiene
+func (e *RealExecutor) enhanceHTML(code string) string {
+	code = strings.TrimSpace(code)
+	lowerCode := strings.ToLower(code)
+	
+	// Si ya tiene estructura completa, devolver como está
+	if strings.Contains(lowerCode, "<!doctype") && 
+	   strings.Contains(lowerCode, "<html") && 
+	   strings.Contains(lowerCode, "<head") && 
+	   strings.Contains(lowerCode, "<body") {
+		return code
+	}
+	
+	// Si solo tiene contenido del body, agregar estructura completa
+	if !strings.Contains(lowerCode, "<html") {
+		enhanced := `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compilador HTML - Resultado</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .generated-notice {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="generated-notice">
+            🚀 Código ejecutado por el Compilador HTML - ` + time.Now().Format("15:04:05") + `
+        </div>
+        <div class="content">
+` + code + `
+        </div>
+    </div>
+</body>
+</html>`
+		return enhanced
+	}
+	
+	return code
+}
+
+// validateHTMLDetailed realiza una validación detallada del HTML
+func (e *RealExecutor) validateHTMLDetailed(code string) string {
+	validation := "📋 Validación HTML Detallada:\n"
+	lowerCode := strings.ToLower(code)
+	
+	// Verificar DOCTYPE
+	if strings.Contains(lowerCode, "<!doctype") {
+		validation += "✅ DOCTYPE declarado correctamente\n"
+	} else {
+		validation += "⚠️  DOCTYPE no encontrado (agregado automáticamente)\n"
+	}
+	
+	// Verificar estructura básica
+	requiredTags := map[string]string{
+		"html": "Estructura raíz del documento",
+		"head": "Metadatos del documento", 
+		"body": "Contenido visible del documento",
+	}
+	
+	for tag, description := range requiredTags {
+		if strings.Contains(lowerCode, "<"+tag) {
+			validation += fmt.Sprintf("✅ <%s>: %s\n", tag, description)
+		} else {
+			validation += fmt.Sprintf("⚠️  <%s>: %s (agregado automáticamente)\n", tag, description)
+		}
+	}
+	
+	// Verificar metadatos importantes
+	metaTags := map[string]string{
+		"charset": "Codificación de caracteres",
+		"viewport": "Configuración de viewport",
+		"title": "Título del documento",
+	}
+	
+	for meta, description := range metaTags {
+		if strings.Contains(lowerCode, meta) {
+			validation += fmt.Sprintf("✅ %s: %s\n", meta, description)
+		} else {
+			validation += fmt.Sprintf("⚠️  %s: %s (agregado automáticamente)\n", meta, description)
+		}
+	}
+	
+	// Contar elementos
+	validation += e.countHTMLElements(code)
+	
+	// Verificar posibles problemas
+	validation += e.checkHTMLIssues(code)
+	
+	return validation
+}
+
+// countHTMLElements cuenta diferentes tipos de elementos HTML
+func (e *RealExecutor) countHTMLElements(code string) string {
+	counts := "📊 Elementos encontrados:\n"
+	
+	elementTypes := map[string]string{
+		"div": "Contenedores",
+		"p": "Párrafos", 
+		"h[1-6]": "Encabezados",
+		"img": "Imágenes",
+		"a": "Enlaces",
+		"button": "Botones",
+		"input": "Campos de entrada",
+		"script": "Scripts",
+		"style": "Estilos",
+	}
+	
+	for pattern, description := range elementTypes {
+		re := regexp.MustCompile(`<` + pattern + `[^>]*>`)
+		matches := re.FindAllString(code, -1)
+		count := len(matches)
+		if count > 0 {
+			counts += fmt.Sprintf("   • %s: %d\n", description, count)
+		}
+	}
+	
+	return counts
+}
+
+// checkHTMLIssues verifica posibles problemas en el HTML
+func (e *RealExecutor) checkHTMLIssues(code string) string {
+	issues := "🔍 Verificación de calidad:\n"
+	hasIssues := false
+	
+	// Verificar etiquetas no cerradas (verificación básica)
+	openTags := regexp.MustCompile(`<([a-zA-Z][a-zA-Z0-9]*)[^>]*>`).FindAllStringSubmatch(code, -1)
+	closeTags := regexp.MustCompile(`</([a-zA-Z][a-zA-Z0-9]*)>`).FindAllStringSubmatch(code, -1)
+	
+	if len(openTags) > len(closeTags) {
+		issues += "⚠️  Posibles etiquetas sin cerrar detectadas\n"
+		hasIssues = true
+	}
+	
+	// Verificar alt en imágenes
+	imgTags := regexp.MustCompile(`<img[^>]*>`).FindAllString(code, -1)
+	for _, img := range imgTags {
+		if !strings.Contains(img, "alt=") {
+			issues += "⚠️  Imagen sin atributo alt (accesibilidad)\n"
+			hasIssues = true
+			break
+		}
+	}
+	
+	if !hasIssues {
+		issues += "✅ No se detectaron problemas comunes\n"
+	}
+	
+	return issues
+}
+
+// createTemporaryWebServer crea un servidor web temporal para mostrar el HTML
+func (e *RealExecutor) createTemporaryWebServer(htmlFile string) ServerInfo {
+	port := 8081
+	duration := 30 // segundos
+	
+	// Verificar si el puerto está disponible, si no, usar otro
+	for i := 0; i < 10; i++ {
+		if e.isPortAvailable(port + i) {
+			port = port + i
+			break
+		}
+	}
+	
+	url := fmt.Sprintf("http://localhost:%d", port)
+	
+	// Iniciar servidor en background
+	go func() {
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, htmlFile)
+		})
+		
+		server := &http.Server{Addr: ":" + strconv.Itoa(port)}
+		
+		// Detener el servidor después del tiempo especificado
+		go func() {
+			time.Sleep(time.Duration(duration) * time.Second)
+			server.Close()
+		}()
+		
+		server.ListenAndServe()
+	}()
+	
+	// Esperar un momento para que el servidor inicie
+	time.Sleep(500 * time.Millisecond)
+	
+	return ServerInfo{
+		URL:      url,
+		Port:     port,
+		Duration: duration,
+	}
+}
+
+// isPortAvailable verifica si un puerto está disponible
+func (e *RealExecutor) isPortAvailable(port int) bool {
+	address := fmt.Sprintf(":%d", port)
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return false
+	}
+	listener.Close()
+	return true
+}
+
+// openInBrowser intenta abrir el HTML en el navegador
+func (e *RealExecutor) openInBrowser(url string) string {
+	var cmd *exec.Cmd
+	
+	switch runtime.GOOS {
+	case "darwin": // macOS
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		return "Sistema operativo no soportado para abrir navegador automáticamente"
+	}
+	
+	err := cmd.Start()
+	if err != nil {
+		return "No se pudo abrir el navegador automáticamente - Abre manualmente: " + url
+	}
+	
+	return "Abriendo en el navegador predeterminado..."
+}
+
 func (e *RealExecutor) simulatePascalExecution(code string) string {
 	if strings.Contains(strings.ToLower(code), "writeln") {
 		return "Programa Pascal ejecutado (simulado)\nSalida: Hello World"
 	}
 	return "Programa Pascal compilado y ejecutado (simulado)"
-}
-
-func (e *RealExecutor) validateHTML(code string) string {
-	validation := "📋 Validación HTML:\n"
-
-	// Verificar DOCTYPE
-	if strings.Contains(strings.ToLower(code), "<!doctype") {
-		validation += "✅ DOCTYPE declarado\n"
-	} else {
-		validation += "⚠️  DOCTYPE no encontrado\n"
-	}
-
-	// Verificar etiquetas básicas
-	basicTags := []string{"html", "head", "body"}
-	for _, tag := range basicTags {
-		if strings.Contains(strings.ToLower(code), "<"+tag) {
-			validation += fmt.Sprintf("✅ Etiqueta <%s> encontrada\n", tag)
-		} else {
-			validation += fmt.Sprintf("⚠️  Etiqueta <%s> no encontrada\n", tag)
-		}
-	}
-
-	return validation
 }
 
 func (e *RealExecutor) analyzeSQLStatement(code string) string {

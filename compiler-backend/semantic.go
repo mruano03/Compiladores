@@ -110,6 +110,11 @@ func (s *SemanticAnalyzer) registerPythonDeclarations(i int, token Token) {
 			}
 		}
 	}
+
+	// Registrar variables de bucle for (for variable in iterable:)
+	if token.Type == "KEYWORD" && token.Value == "for" {
+		s.registerPythonForLoopVariable(i)
+	}
 }
 
 // registerPythonFunctionParameters registra los parámetros de una función Python
@@ -134,6 +139,29 @@ func (s *SemanticAnalyzer) registerPythonFunctionParameters(funcTokenIndex int, 
 				Line:     token.Line,
 				Column:   token.Column,
 				Category: "parameter",
+			}
+		}
+	}
+}
+
+// registerPythonForLoopVariable registra la variable de un bucle for en Python
+func (s *SemanticAnalyzer) registerPythonForLoopVariable(forTokenIndex int) {
+	// Buscar el patrón: for variable in ...
+	if forTokenIndex+2 < len(s.tokens) {
+		varToken := s.tokens[forTokenIndex+1]
+		inToken := s.tokens[forTokenIndex+2]
+		
+		// Verificar que es: for <variable> in
+		if varToken.Type == "IDENTIFIER" && inToken.Type == "KEYWORD" && inToken.Value == "in" {
+			varName := varToken.Value
+			s.symbols["global."+varName] = Symbol{
+				Name:     varName,
+				Type:     "variable",
+				Value:    "",
+				Scope:    "global",
+				Line:     varToken.Line,
+				Column:   varToken.Column,
+				Category: "loop_variable",
 			}
 		}
 	}
@@ -335,6 +363,38 @@ func (s *SemanticAnalyzer) registerCppDeclarations(i int, token Token) {
 
 			// Registrar parámetros de la función
 			s.registerCppFunctionParameters(i, funcName)
+		}
+	}
+
+	// Detectar función main específicamente si no fue detectada como FUNCTION
+	if token.Type == "IDENTIFIER" && token.Value == "main" && i < len(s.tokens)-1 {
+		nextToken := s.tokens[i+1]
+		if nextToken.Type == "DELIMITER" && nextToken.Value == "(" {
+			s.symbols["main"] = Symbol{
+				Name:     "main",
+				Type:     "function",
+				Value:    "int main()",
+				Scope:    "global",
+				Line:     token.Line,
+				Column:   token.Column,
+				Category: "function",
+			}
+		}
+	}
+
+	// Detectar función main desde token VARIABLE "int main"
+	if token.Type == "VARIABLE" && strings.Contains(token.Value, "main") && i < len(s.tokens)-1 {
+		nextToken := s.tokens[i+1]
+		if nextToken.Type == "DELIMITER" && nextToken.Value == "(" {
+			s.symbols["main"] = Symbol{
+				Name:     "main",
+				Type:     "function",
+				Value:    "int main()",
+				Scope:    "global",
+				Line:     token.Line,
+				Column:   token.Column,
+				Category: "function",
+			}
 		}
 	}
 
@@ -903,23 +963,8 @@ func (s *SemanticAnalyzer) analyzeExpression(node ParseNode) []CompilerError {
 			return errors // No marcar error para propiedades de objetos globales
 		}
 
-		// Casos especiales para Python
-		if s.language == "python" {
-			// Ignorar texto adicional que no es código válido
-			if s.isInvalidTrailingText(node.Value) {
-				errors = append(errors, CompilerError{
-					Type:     "lexico",
-					Message:  "Texto inesperado: '" + node.Value + "'",
-					Line:     node.Line,
-					Column:   node.Column,
-					Position: 0,
-					Severity: "error",
-				})
-				return errors
-			}
-		}
-
-		if !s.isVariableDeclared(node.Value) && !s.isKeyword(node.Value) && !s.isGlobalObject(node.Value) {
+		// Verificar si la variable está declarada usando una búsqueda más amplia
+		if !s.isVariableOrParameterDeclared(node.Value) && !s.isKeyword(node.Value) && !s.isGlobalObject(node.Value) {
 			errors = append(errors, CompilerError{
 				Type:     "semantico",
 				Message:  "Variable '" + node.Value + "' no declarada",
@@ -934,70 +979,14 @@ func (s *SemanticAnalyzer) analyzeExpression(node ParseNode) []CompilerError {
 	return errors
 }
 
-// isInvalidTrailingText verifica si el texto es código inválido al final
-func (s *SemanticAnalyzer) isInvalidTrailingText(value string) bool {
-	// Patrones comunes de texto inválido
-	invalidPatterns := []string{"asd", "asdf", "test", "xxx", "yyy", "zzz"}
-
-	lowerValue := strings.ToLower(value)
-	for _, pattern := range invalidPatterns {
-		if lowerValue == pattern {
-			return true
-		}
-	}
-
-	// Verificar si es un identificador que aparece sin contexto válido
-	switch s.language {
-	case "python":
-		// En Python, texto después de strings o paréntesis sin operador
-		return len(value) <= 5 && s.isIdentifier(value) && !s.isKeyword(value) && !s.isGlobalObject(value)
-	case "javascript":
-		// En JavaScript, similar lógica
-		return len(value) <= 5 && s.isIdentifier(value) && !s.isKeyword(value) && !s.isGlobalObject(value)
-	case "html":
-		// En HTML, texto fuera de elementos
-		return !strings.HasPrefix(value, "<") && !strings.HasSuffix(value, ">") && len(value) <= 5
-	case "pascal", "plsql", "tsql":
-		// En lenguajes estructurados, identificadores sin contexto
-		return len(value) <= 5 && s.isIdentifier(value) && !s.isKeyword(value)
-	case "cpp":
-		// En C++, similar lógica
-		return len(value) <= 5 && s.isIdentifier(value) && !s.isKeyword(value) && !s.isCppType(value)
-	}
-
-	return false
-}
-
-// isPropertyAccess verifica si un nodo es parte de un acceso a propiedad
-func (s *SemanticAnalyzer) isPropertyAccess(node ParseNode) bool {
-	// Buscar en el árbol sintáctico si hay un patrón objeto.propiedad
-	for i, parseNode := range s.parseTree {
-		if parseNode.Value == node.Value {
-			// Verificar si el nodo anterior es un punto y el anterior a ese es un objeto global
-			if i >= 2 && s.parseTree[i-1].Value == "." {
-				prevObject := s.parseTree[i-2].Value
-				if s.isGlobalObject(prevObject) {
-					return true
-				}
-			}
-			// Verificar si el nodo siguiente es un punto (para objetos como console)
-			if i < len(s.parseTree)-1 && s.parseTree[i+1].Value == "." {
-				if s.isGlobalObject(parseNode.Value) {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 // checkVariableUsage verifica el uso correcto de variables
 func (s *SemanticAnalyzer) checkVariableUsage() []CompilerError {
 	var errors []CompilerError
 
 	// Verificar variables declaradas pero no usadas
 	for _, symbol := range s.symbols {
-		if symbol.Category == "variable" && !s.isVariableUsed(symbol.Name) {
+		// Solo verificar variables reales, no funciones
+		if symbol.Category == "variable" && !s.isVariableUsed(symbol.Name) && !s.isGlobalObject(symbol.Name) {
 			errors = append(errors, CompilerError{
 				Type:     "semantico",
 				Message:  "Variable '" + symbol.Name + "' declarada pero no usada",
@@ -1061,7 +1050,7 @@ func (s *SemanticAnalyzer) isIdentifier(value string) bool {
 	return true
 }
 
-func (s *SemanticAnalyzer) isVariableDeclared(name string) bool {
+func (s *SemanticAnalyzer) isVariableOrParameterDeclared(name string) bool {
 	// Buscar en scope actual
 	scopedName := s.getCurrentScope() + "." + name
 	if _, exists := s.symbols[scopedName]; exists {
@@ -1078,9 +1067,10 @@ func (s *SemanticAnalyzer) isVariableDeclared(name string) bool {
 		return true
 	}
 
-	// Buscar en parámetros de todas las funciones (para todos los lenguajes)
-	for key := range s.symbols {
-		if strings.Contains(key, "."+name) && s.symbols[key].Category == "parameter" {
+	// Buscar en TODOS los símbolos para parámetros y variables
+	for _, symbol := range s.symbols {
+		// Si el nombre coincide y es una variable o parámetro, está declarado
+		if symbol.Name == name && (symbol.Category == "parameter" || symbol.Category == "variable") {
 			return true
 		}
 	}
@@ -1166,7 +1156,7 @@ func getGlobalObjects(language string) []string {
 		return []string{
 			"std", "cout", "cin", "endl", "string", "vector", "map", "set",
 			"iostream", "fstream", "sstream", "algorithm", "iterator", "printf",
-			"scanf", "malloc", "free", "sizeof", "NULL",
+			"scanf", "malloc", "free", "sizeof", "NULL", "main",
 		}
 	case "html":
 		return []string{
@@ -1204,6 +1194,56 @@ func (s *SemanticAnalyzer) isVariableUsed(name string) bool {
 	for _, token := range s.tokens {
 		if token.Value == name && token.Type == "IDENTIFIER" {
 			return true
+		}
+	}
+	return false
+}
+
+func (s *SemanticAnalyzer) isVariableDeclared(name string) bool {
+	// Buscar en scope actual
+	scopedName := s.getCurrentScope() + "." + name
+	if _, exists := s.symbols[scopedName]; exists {
+		return true
+	}
+
+	// Buscar en scope global
+	if _, exists := s.symbols["global."+name]; exists {
+		return true
+	}
+
+	// Buscar sin scope (funciones y clases)
+	if _, exists := s.symbols[name]; exists {
+		return true
+	}
+
+	// Buscar en parámetros de todas las funciones (para todos los lenguajes)
+	for key := range s.symbols {
+		if strings.Contains(key, "."+name) && s.symbols[key].Category == "parameter" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isPropertyAccess verifica si un nodo es parte de un acceso a propiedad
+func (s *SemanticAnalyzer) isPropertyAccess(node ParseNode) bool {
+	// Buscar en el árbol sintáctico si hay un patrón objeto.propiedad
+	for i, parseNode := range s.parseTree {
+		if parseNode.Value == node.Value {
+			// Verificar si el nodo anterior es un punto y el anterior a ese es un objeto global
+			if i >= 2 && s.parseTree[i-1].Value == "." {
+				prevObject := s.parseTree[i-2].Value
+				if s.isGlobalObject(prevObject) {
+					return true
+				}
+			}
+			// Verificar si el nodo siguiente es un punto (para objetos como console)
+			if i < len(s.parseTree)-1 && s.parseTree[i+1].Value == "." {
+				if s.isGlobalObject(parseNode.Value) {
+					return true
+				}
+			}
 		}
 	}
 	return false

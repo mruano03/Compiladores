@@ -7,6 +7,21 @@ type TokenType string
 
 // Constantes para tipos de tokens
 const (
+	EspacioBlanco TokenType = "EspacioBlanco"
+	Comentario    TokenType = "Comentario"
+	Texto     TokenType = "Texto"
+	Numero     TokenType = "Numero"
+	Funcion   TokenType = "Funcion"
+	Clase      TokenType = "Clase"
+	Variable   TokenType = "Variable"		
+	Constante   TokenType = "Constante"
+	PalabraClave    TokenType = "PalabraClave"
+	Operador   TokenType = "Operador"
+	Delimitador  TokenType = "Delimitador"
+	Identificador TokenType = "Identificador"
+	Desconocido    TokenType = "Desconocido"
+	
+	// Aliases en inglés para compatibilidad con el código existente
 	WHITESPACE TokenType = "WHITESPACE"
 	COMMENT    TokenType = "COMMENT"
 	STRING     TokenType = "STRING"

@@ -47,11 +47,11 @@ var LanguageSpecificPatterns = map[string]LanguagePatterns{
 			regexp.MustCompile(`^(auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|int|long|register|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|class|private|public|protected|virtual|friend|inline|template|typename|namespace|using|try|catch|throw|new|delete|this|operator|bool|true|false|std|cout|cin|endl|string|vector|map|set|iostream|fstream|sstream)\b`),
 		},
 		Comments:   regexp.MustCompile(`^(//.*$|/\*[\s\S]*?\*/)`),
-		Functions:  regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*\s*\(`),
+		Functions:  regexp.MustCompile(`^([a-zA-Z_][a-zA-Z0-9_]*\s*\(|(int|double|float|char|bool|string|void|auto)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\()`),
 		Classes:    regexp.MustCompile(`^class\s+[a-zA-Z_][a-zA-Z0-9_]*`),
-		Variables:  regexp.MustCompile(`^(int|double|float|char|bool|string|auto)\s+[a-zA-Z_][a-zA-Z0-9_]*`),
+		Variables:  regexp.MustCompile(`^(int|double|float|char|bool|string|auto)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*[^(]`),
 		Constants:  regexp.MustCompile(`^const\s+[a-zA-Z_][a-zA-Z0-9_]*`),
-		Operators:  regexp.MustCompile(`^(<<|>>|\+\+|--|<=|>=|==|!=|&&|\|\||[+\-*/%=<>!&|^~])`),
+		Operators:  regexp.MustCompile(`^(\+\+|--|<<|>>|<=|>=|==|!=|&&|\|\||::|[+\-*/%=<>!&|^~\:])`),
 		Delimiters: regexp.MustCompile(`^[(){}\[\];,.<>]`),
 	},
 	"javascript": {
@@ -70,7 +70,7 @@ var LanguageSpecificPatterns = map[string]LanguagePatterns{
 		Keywords: []*regexp.Regexp{
 			regexp.MustCompile(`^(and|as|assert|break|class|continue|def|del|elif|else|except|exec|finally|for|from|global|if|import|in|is|lambda|not|or|pass|print|raise|return|try|while|with|yield|True|False|None)\b`),
 		},
-		Comments:   regexp.MustCompile(`^#.*$`),
+		Comments:   regexp.MustCompile(`(?m)^#.*`),
 		Functions:  regexp.MustCompile(`^def\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(`),
 		Classes:    regexp.MustCompile(`^class\s+[a-zA-Z_][a-zA-Z0-9_]*`),
 		Variables:  regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*\s*=`),

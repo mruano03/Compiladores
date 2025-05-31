@@ -140,14 +140,14 @@ GET /api/v1/config
 <summary>🐍 <strong>Python - Ejecución Real</strong></summary>
 
 ```python
-def fibonacci(n):
-    if n <= 1:
-        return n
-    return fibonacci(n-1) + fibonacci(n-2)
+    def fibonacci(n):
+        if n <= 1:
+            return n
+        return fibonacci(n-1) + fibonacci(n-2)
 
-# Calcular los primeros 10 números de Fibonacci
-for i in range(10):
-    print(f"F({i}) = {fibonacci(i)}")
+    # Calcular los primeros 10 números de Fibonacci
+    for i in range(10):
+        print(f"F({i}) = {fibonacci(i)}")
 ```
 
 </details>
@@ -173,28 +173,38 @@ int main() {
     return 0;
 }
 ```
-
+```html
+<html>
+    <body>
+        <h1>Hello World</h1>
+    </body>
+</html>
+```
 </details>
 
 <details>
 <summary>📦 <strong>JavaScript - Node.js</strong></summary>
 
 ```javascript
-class Calculator {
-    static add(a, b) { return a + b; }
-    static multiply(a, b) { return a * b; }
-    static power(base, exp) { return Math.pow(base, exp); }
+function fibonacci(n) {
+    if (n <= 1) return n;
+    return fibonacci(n-1) + fibonacci(n-2);
 }
 
-const result = Calculator.power(
-    Calculator.add(5, 3), 
-    Calculator.multiply(2, 1)
-);
-
-console.log(`Resultado: ${result}`);
+console.log(fibonacci(10));
 ```
 
 </details>
+
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY,
+    name VARCHAR(255),
+    email VARCHAR(255)
+);
+
+INSERT INTO users (id, name, email) VALUES (1, 'John Doe', 'john@example.com');
+```
 
 
 

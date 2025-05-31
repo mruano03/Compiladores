@@ -89,17 +89,38 @@ func (l *RegexAnalyzer) nextToken() (*Token, *CompilerError) {
 func (l *RegexAnalyzer) matchLanguagePatterns(start, startLine, startColumn int) (*Token, *CompilerError) {
 	remaining := l.input[l.position:]
 
-	// 1. Comentarios (prioridad alta)
+	// 1. Comentarios (prioridad alta) - Manejo especial para Python
 	if l.patterns.Comments != nil {
-		if match := l.patterns.Comments.FindString(remaining); match != "" {
-			l.advanceBy(len(match))
-			return &Token{
-				Type:     string(COMMENT),
-				Value:    match,
-				Line:     startLine,
-				Column:   startColumn,
-				Position: start,
-			}, nil
+		if l.language == "python" {
+			// Manejo específico para comentarios de Python con caracteres UTF-8
+			if l.position < len(l.input) && l.input[l.position] == '#' {
+				// Buscar el final de la línea
+				endPos := l.position
+				for endPos < len(l.input) && l.input[endPos] != '\n' && l.input[endPos] != '\r' {
+					endPos++
+				}
+				match := l.input[l.position:endPos]
+				l.advanceBy(len(match))
+				return &Token{
+					Type:     string(COMMENT),
+					Value:    match,
+					Line:     startLine,
+					Column:   startColumn,
+					Position: start,
+				}, nil
+			}
+		} else {
+			// Usar regex para otros lenguajes
+			if match := l.patterns.Comments.FindString(remaining); match != "" {
+				l.advanceBy(len(match))
+				return &Token{
+					Type:     string(COMMENT),
+					Value:    match,
+					Line:     startLine,
+					Column:   startColumn,
+					Position: start,
+				}, nil
+			}
 		}
 	}
 
@@ -127,7 +148,7 @@ func (l *RegexAnalyzer) matchLanguagePatterns(start, startLine, startColumn int)
 		}, nil
 	}
 
-	// 4. Funciones (antes que palabras clave)
+	// 4. Funciones (antes que palabras clave) - Con manejo especial para C++
 	if l.patterns.Functions != nil {
 		if match := l.patterns.Functions.FindString(remaining); match != "" {
 			l.advanceBy(len(match))
@@ -138,6 +159,30 @@ func (l *RegexAnalyzer) matchLanguagePatterns(start, startLine, startColumn int)
 				Column:   startColumn,
 				Position: start,
 			}, nil
+		}
+
+		// Manejo especial para C++: detectar "tipo nombre(" como función
+		if l.language == "cpp" {
+			cppFunctionPattern := regexp.MustCompile(`^(int|double|float|char|bool|string|void|auto)\s+[a-zA-Z_][a-zA-Z0-9_]*`)
+			if match := cppFunctionPattern.FindString(remaining); match != "" {
+				// Hacer lookahead para ver si hay paréntesis después
+				endPos := l.position + len(match)
+				// Saltar espacios en blanco
+				for endPos < len(l.input) && (l.input[endPos] == ' ' || l.input[endPos] == '\t') {
+					endPos++
+				}
+				// Verificar si hay paréntesis
+				if endPos < len(l.input) && l.input[endPos] == '(' {
+					l.advanceBy(len(match))
+					return &Token{
+						Type:     string(FUNCTION),
+						Value:    match,
+						Line:     startLine,
+						Column:   startColumn,
+						Position: start,
+					}, nil
+				}
+			}
 		}
 	}
 
