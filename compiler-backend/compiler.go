@@ -18,6 +18,7 @@ import (
     "os/exec"
     "path/filepath"
     "regexp"
+    "strconv"
     "strings"
     "time"
 )
@@ -359,8 +360,13 @@ func (p *Parser) Parse() ([]ParseNode, []CompilerError) {
     return n, errors
 }
 
-type SemanticAnalyzer struct{ tokens []Token }
-func NewSemanticAnalyzer(t []Token, _ []ParseNode, _ string) *SemanticAnalyzer { return &SemanticAnalyzer{tokens: t} }
+type SemanticAnalyzer struct{ 
+    tokens []Token
+    language string 
+}
+func NewSemanticAnalyzer(t []Token, _ []ParseNode, lang string) *SemanticAnalyzer { 
+    return &SemanticAnalyzer{tokens: t, language: lang} 
+}
 func (s *SemanticAnalyzer) Analyze() ([]Symbol, []CompilerError) {
     var syms []Symbol
     var errors []CompilerError
@@ -369,23 +375,61 @@ func (s *SemanticAnalyzer) Analyze() ([]Symbol, []CompilerError) {
     declared := make(map[string]int) // nombre -> posición de declaración
     used := make(map[string][]int)   // nombre -> posiciones de uso
     
-    // Primera pasada: identificar declaraciones y usos
+    // Primera pasada: identificar declaraciones y usos según el lenguaje
     for i, tk := range s.tokens {
         if tk.Type == IDENTIFIER {
-            // Detectar declaraciones (simplificado)
+            // Detectar declaraciones específicas por lenguaje
             isDeclaration := false
             if i > 0 {
                 prevToken := s.tokens[i-1]
-                // Palabras clave que indican declaración
-                if prevToken.Type == KEYWORD && 
-                   (strings.Contains(prevToken.Lexeme, "int") || 
-                    strings.Contains(prevToken.Lexeme, "var") ||
-                    strings.Contains(prevToken.Lexeme, "let") ||
-                    strings.Contains(prevToken.Lexeme, "const") ||
-                    strings.Contains(prevToken.Lexeme, "string") ||
-                    strings.Contains(prevToken.Lexeme, "float") ||
-                    strings.Contains(prevToken.Lexeme, "double")) {
-                    isDeclaration = true
+                
+                switch s.language {
+                case "cpp":
+                    // C++: tipos de datos y palabras clave de declaración
+                    if prevToken.Type == KEYWORD && 
+                       (strings.Contains(prevToken.Lexeme, "int") || 
+                        strings.Contains(prevToken.Lexeme, "char") ||
+                        strings.Contains(prevToken.Lexeme, "string") ||
+                        strings.Contains(prevToken.Lexeme, "float") ||
+                        strings.Contains(prevToken.Lexeme, "double") ||
+                        strings.Contains(prevToken.Lexeme, "bool") ||
+                        strings.Contains(prevToken.Lexeme, "void")) {
+                        isDeclaration = true
+                    }
+                case "javascript":
+                    // JavaScript: var, let, const, function
+                    if prevToken.Type == KEYWORD && 
+                       (prevToken.Lexeme == "var" || 
+                        prevToken.Lexeme == "let" ||
+                        prevToken.Lexeme == "const" ||
+                        prevToken.Lexeme == "function") {
+                        isDeclaration = true
+                    }
+                case "python":
+                    // Python: detectar asignaciones como declaraciones
+                    if i+1 < len(s.tokens) && s.tokens[i+1].Lexeme == "=" {
+                        isDeclaration = true
+                    }
+                    // Python: def para funciones
+                    if prevToken.Type == KEYWORD && prevToken.Lexeme == "def" {
+                        isDeclaration = true
+                    }
+                    // Python: class para clases
+                    if prevToken.Type == KEYWORD && prevToken.Lexeme == "class" {
+                        isDeclaration = true
+                    }
+                default:
+                    // Lenguaje genérico
+                    if prevToken.Type == KEYWORD && 
+                       (strings.Contains(prevToken.Lexeme, "int") || 
+                        strings.Contains(prevToken.Lexeme, "var") ||
+                        strings.Contains(prevToken.Lexeme, "let") ||
+                        strings.Contains(prevToken.Lexeme, "const") ||
+                        strings.Contains(prevToken.Lexeme, "string") ||
+                        strings.Contains(prevToken.Lexeme, "float") ||
+                        strings.Contains(prevToken.Lexeme, "double")) {
+                        isDeclaration = true
+                    }
                 }
             }
             
@@ -400,7 +444,22 @@ func (s *SemanticAnalyzer) Analyze() ([]Symbol, []CompilerError) {
                     })
                 } else {
                     declared[tk.Lexeme] = tk.Start
-                    syms = append(syms, Symbol{Name: tk.Lexeme, Kind: "var", Pos: tk.Start})
+                    
+                    // Determinar el tipo de símbolo
+                    symbolKind := "var"
+                    if i > 0 {
+                        prevToken := s.tokens[i-1]
+                        switch prevToken.Lexeme {
+                        case "function", "def":
+                            symbolKind = "function"
+                        case "class":
+                            symbolKind = "class"
+                        case "const":
+                            symbolKind = "constant"
+                        }
+                    }
+                    
+                    syms = append(syms, Symbol{Name: tk.Lexeme, Kind: symbolKind, Pos: tk.Start})
                 }
             } else {
                 // Es un uso
@@ -410,8 +469,11 @@ func (s *SemanticAnalyzer) Analyze() ([]Symbol, []CompilerError) {
     }
     
     // Segunda pasada: verificar usos de variables no declaradas
+    // Excluir palabras reservadas y funciones built-in
+    builtInFunctions := s.getBuiltInFunctions()
+    
     for varName, positions := range used {
-        if _, declared := declared[varName]; !declared {
+        if _, isDeclared := declared[varName]; !isDeclared && !builtInFunctions[varName] {
             for _, pos := range positions {
                 errors = append(errors, CompilerError{
                     Message:  fmt.Sprintf("Error semántico: Variable '%s' no fue declarada", varName),
@@ -436,11 +498,7 @@ func (s *SemanticAnalyzer) Analyze() ([]Symbol, []CompilerError) {
     }
     
     // Detectar palabras reservadas usadas como identificadores
-    reservedWords := map[string]bool{
-        "if": true, "else": true, "while": true, "for": true, "return": true,
-        "int": true, "float": true, "double": true, "char": true, "void": true,
-        "class": true, "public": true, "private": true, "protected": true,
-    }
+    reservedWords := s.getReservedWords()
     
     for _, sym := range syms {
         if reservedWords[sym.Name] {
@@ -454,6 +512,78 @@ func (s *SemanticAnalyzer) Analyze() ([]Symbol, []CompilerError) {
     }
     
     return syms, errors
+}
+
+// Obtener funciones built-in según el lenguaje
+func (s *SemanticAnalyzer) getBuiltInFunctions() map[string]bool {
+    switch s.language {
+    case "python":
+        return map[string]bool{
+            "print": true, "len": true, "str": true, "int": true, "float": true,
+            "range": true, "input": true, "type": true, "isinstance": true,
+            "list": true, "dict": true, "tuple": true, "set": true,
+            "min": true, "max": true, "sum": true, "abs": true,
+        }
+    case "javascript":
+        return map[string]bool{
+            "console": true, "alert": true, "prompt": true, "confirm": true,
+            "parseInt": true, "parseFloat": true, "isNaN": true, "String": true,
+            "Number": true, "Boolean": true, "Array": true, "Object": true,
+            "Math": true, "Date": true, "JSON": true, "setTimeout": true,
+            "setInterval": true, "clearTimeout": true, "clearInterval": true,
+        }
+    case "cpp":
+        return map[string]bool{
+            "cout": true, "cin": true, "endl": true, "std": true,
+            "printf": true, "scanf": true, "malloc": true, "free": true,
+            "strlen": true, "strcpy": true, "strcmp": true,
+        }
+    default:
+        return map[string]bool{}
+    }
+}
+
+// Obtener palabras reservadas según el lenguaje
+func (s *SemanticAnalyzer) getReservedWords() map[string]bool {
+    switch s.language {
+    case "python":
+        return map[string]bool{
+            "and": true, "as": true, "assert": true, "async": true, "await": true,
+            "break": true, "class": true, "continue": true, "def": true, "del": true,
+            "elif": true, "else": true, "except": true, "False": true, "finally": true,
+            "for": true, "from": true, "global": true, "if": true, "import": true,
+            "in": true, "is": true, "lambda": true, "nonlocal": true, "None": true,
+            "not": true, "or": true, "pass": true, "raise": true, "return": true,
+            "True": true, "try": true, "while": true, "with": true, "yield": true,
+        }
+    case "javascript":
+        return map[string]bool{
+            "var": true, "let": true, "const": true, "function": true, "return": true,
+            "if": true, "else": true, "for": true, "while": true, "do": true,
+            "switch": true, "case": true, "break": true, "continue": true,
+            "try": true, "catch": true, "finally": true, "throw": true,
+            "new": true, "this": true, "typeof": true, "instanceof": true,
+            "in": true, "of": true, "class": true, "extends": true, "super": true,
+            "static": true, "import": true, "export": true, "from": true, "as": true,
+            "async": true, "await": true, "true": true, "false": true, "null": true,
+            "undefined": true,
+        }
+    case "cpp":
+        return map[string]bool{
+            "if": true, "else": true, "while": true, "for": true, "return": true,
+            "int": true, "float": true, "double": true, "char": true, "void": true,
+            "class": true, "public": true, "private": true, "protected": true,
+            "namespace": true, "using": true, "include": true, "define": true,
+            "bool": true, "true": true, "false": true, "const": true, "static": true,
+            "virtual": true, "override": true, "template": true, "typename": true,
+        }
+    default:
+        return map[string]bool{
+            "if": true, "else": true, "while": true, "for": true, "return": true,
+            "int": true, "float": true, "double": true, "char": true, "void": true,
+            "class": true, "public": true, "private": true, "protected": true,
+        }
+    }
 }
 
 // ───────────────────── Ejecutores (real y simulado) ──────────────────────
@@ -542,8 +672,13 @@ func DetectLanguage(code string) string {
 func parseCompilerErrors(output string, language string) []CompilerError {
     var errors []CompilerError
     
-    if language == "cpp" {
+    switch language {
+    case "cpp":
         return parseCPPErrors(output)
+    case "python":
+        return parsePythonErrors(output)
+    case "javascript":
+        return parseJavaScriptErrors(output)
     }
     
     return errors
@@ -618,6 +753,181 @@ func parseCPPErrors(output string) []CompilerError {
     return errors
 }
 
+// Parsear errores específicos de Python
+func parsePythonErrors(output string) []CompilerError {
+    var errors []CompilerError
+    lines := strings.Split(output, "\n")
+    
+    for i, line := range lines {
+        line = strings.TrimSpace(line)
+        
+        // Python muestra errores en múltiples líneas
+        if strings.Contains(line, "File \"") && strings.Contains(line, "line") {
+            // Formato: File "archivo.py", line 1
+            var lineNum int = 1
+            var severity string = "error"
+            var errorType, message string
+            
+            // Extraer número de línea
+            re := regexp.MustCompile(`line (\d+)`)
+            if matches := re.FindStringSubmatch(line); len(matches) > 1 {
+                if ln, err := strconv.Atoi(matches[1]); err == nil {
+                    lineNum = ln
+                }
+            }
+            
+            // Buscar el mensaje de error en las líneas siguientes
+            if i+1 < len(lines) {
+                errorLine := strings.TrimSpace(lines[i+1])
+                
+                // Categorizar errores de Python
+                if strings.Contains(errorLine, "SyntaxError") {
+                    if strings.Contains(errorLine, "invalid character") ||
+                       strings.Contains(errorLine, "invalid decimal literal") ||
+                       strings.Contains(errorLine, "invalid token") {
+                        errorType = "lexico"
+                        message = "Error Léxico: " + strings.TrimPrefix(errorLine, "SyntaxError: ")
+                    } else {
+                        errorType = "sintactico"
+                        message = "Error Sintáctico: " + strings.TrimPrefix(errorLine, "SyntaxError: ")
+                    }
+                } else if strings.Contains(errorLine, "IndentationError") {
+                    errorType = "sintactico"
+                    message = "Error Sintáctico: " + strings.TrimPrefix(errorLine, "IndentationError: ")
+                } else if strings.Contains(errorLine, "NameError") {
+                    errorType = "semantico"
+                    message = "Error Semántico: " + strings.TrimPrefix(errorLine, "NameError: ")
+                } else if strings.Contains(errorLine, "TypeError") {
+                    errorType = "semantico"
+                    message = "Error Semántico: " + strings.TrimPrefix(errorLine, "TypeError: ")
+                } else if strings.Contains(errorLine, "ValueError") {
+                    errorType = "semantico"
+                    message = "Error Semántico: " + strings.TrimPrefix(errorLine, "ValueError: ")
+                } else if strings.Contains(errorLine, "AttributeError") {
+                    errorType = "semantico"
+                    message = "Error Semántico: " + strings.TrimPrefix(errorLine, "AttributeError: ")
+                } else {
+                    errorType = "sintactico"
+                    message = "Error: " + errorLine
+                }
+                
+                errors = append(errors, CompilerError{
+                    Message:  message,
+                    Severity: severity,
+                    Type:     errorType,
+                    Pos:      (lineNum-1)*100 + 1, // Aproximación para posición
+                })
+            }
+        }
+    }
+    
+    return errors
+}
+
+// Parsear errores específicos de JavaScript (Node.js)
+func parseJavaScriptErrors(output string) []CompilerError {
+    var errors []CompilerError
+    lines := strings.Split(output, "\n")
+    
+    for _, line := range lines {
+        line = strings.TrimSpace(line)
+        
+        // Errores de sintaxis de JavaScript
+        if strings.Contains(line, "SyntaxError") {
+            var lineNum int = 1
+            var severity string = "error"
+            var errorType, message string
+            
+            // Buscar número de línea en el formato "archivo:línea:columna"
+            re := regexp.MustCompile(`(\w+\.js):(\d+):(\d+)`)
+            if matches := re.FindStringSubmatch(line); len(matches) > 2 {
+                if ln, err := strconv.Atoi(matches[2]); err == nil {
+                    lineNum = ln
+                }
+            }
+            
+            // Categorizar errores de JavaScript
+            if strings.Contains(line, "Unexpected token") ||
+               strings.Contains(line, "Invalid character") ||
+               strings.Contains(line, "Unterminated string") ||
+               strings.Contains(line, "Octal literals") {
+                errorType = "lexico"
+                message = "Error Léxico: " + extractJSErrorMessage(line)
+            } else if strings.Contains(line, "Unexpected end of input") ||
+                     strings.Contains(line, "Missing") ||
+                     strings.Contains(line, "Expected") {
+                errorType = "sintactico"
+                message = "Error Sintáctico: " + extractJSErrorMessage(line)
+            } else {
+                errorType = "sintactico"
+                message = "Error Sintáctico: " + extractJSErrorMessage(line)
+            }
+            
+            errors = append(errors, CompilerError{
+                Message:  message,
+                Severity: severity,
+                Type:     errorType,
+                Pos:      (lineNum-1)*100 + 1, // Aproximación para posición
+            })
+        }
+        
+        // Errores de referencia (ReferenceError)
+        if strings.Contains(line, "ReferenceError") {
+            var lineNum int = 1
+            
+            // Buscar número de línea
+            re := regexp.MustCompile(`at.*?:(\d+):(\d+)`)
+            if matches := re.FindStringSubmatch(line); len(matches) > 1 {
+                if ln, err := strconv.Atoi(matches[1]); err == nil {
+                    lineNum = ln
+                }
+            }
+            
+            errors = append(errors, CompilerError{
+                Message:  "Error Semántico: " + extractJSErrorMessage(line),
+                Severity: "error",
+                Type:     "semantico",
+                Pos:      (lineNum-1)*100 + 1,
+            })
+        }
+        
+        // Errores de tipo (TypeError)
+        if strings.Contains(line, "TypeError") {
+            var lineNum int = 1
+            
+            re := regexp.MustCompile(`at.*?:(\d+):(\d+)`)
+            if matches := re.FindStringSubmatch(line); len(matches) > 1 {
+                if ln, err := strconv.Atoi(matches[1]); err == nil {
+                    lineNum = ln
+                }
+            }
+            
+            errors = append(errors, CompilerError{
+                Message:  "Error Semántico: " + extractJSErrorMessage(line),
+                Severity: "error",
+                Type:     "semantico",
+                Pos:      (lineNum-1)*100 + 1,
+            })
+        }
+    }
+    
+    return errors
+}
+
+// Extraer el mensaje de error de JavaScript
+func extractJSErrorMessage(line string) string {
+    if idx := strings.Index(line, "SyntaxError: "); idx != -1 {
+        return strings.TrimSpace(line[idx+13:])
+    }
+    if idx := strings.Index(line, "ReferenceError: "); idx != -1 {
+        return strings.TrimSpace(line[idx+16:])
+    }
+    if idx := strings.Index(line, "TypeError: "); idx != -1 {
+        return strings.TrimSpace(line[idx+11:])
+    }
+    return line
+}
+
 // Extraer el mensaje de error limpio
 func extractErrorMessage(line string) string {
     if idx := strings.Index(line, "error:"); idx != -1 {
@@ -652,22 +962,76 @@ func AnalyzeCode(code, language string) AnalyzeResponse {
             char := t.Lexeme
             var errorMsg string
             
-            // Detectar diferentes tipos de errores léxicos
-            switch {
-            case char == "@" || char == "#" && language != "python":
-                errorMsg = fmt.Sprintf("Error Léxico: Caracter '%s' no válido en %s", char, language)
-            case char == "$" && language == "cpp":
-                errorMsg = fmt.Sprintf("Error Léxico: Caracter '$' no es válido en C++")
-            case strings.HasPrefix(char, "\"") && !strings.HasSuffix(char, "\""):
-                errorMsg = fmt.Sprintf("Error Léxico: String no cerrado que comienza con '%s'", char)
-            case strings.HasPrefix(char, "'") && !strings.HasSuffix(char, "'"):
-                errorMsg = fmt.Sprintf("Error Léxico: Caracter literal no cerrado que comienza con '%s'", char)
-            case regexp.MustCompile(`^\d+[a-zA-Z]`).MatchString(char):
-                errorMsg = fmt.Sprintf("Error Léxico: Número mal formado '%s' - contiene letras", char)
-            case regexp.MustCompile(`^[0-9]*\.[0-9]*\.[0-9]*`).MatchString(char):
-                errorMsg = fmt.Sprintf("Error Léxico: Número decimal mal formado '%s' - múltiples puntos decimales", char)
+            // Detectar diferentes tipos de errores léxicos según el lenguaje
+            switch language {
+            case "python":
+                switch {
+                case char == "@" && !strings.HasPrefix(code[t.Start:], "@"):
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter '@' inesperado en Python (no es un decorador válido)")
+                case char == "$":
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter '$' no es válido en Python")
+                case strings.HasPrefix(char, "\"") && !strings.HasSuffix(char, "\""):
+                    errorMsg = fmt.Sprintf("Error Léxico: String no cerrado que comienza con '%s'", char)
+                case strings.HasPrefix(char, "'") && !strings.HasSuffix(char, "'"):
+                    errorMsg = fmt.Sprintf("Error Léxico: String no cerrado que comienza con '%s'", char)
+                case regexp.MustCompile(`^\d+[a-zA-Z]`).MatchString(char):
+                    errorMsg = fmt.Sprintf("Error Léxico: Número mal formado '%s' - contiene letras", char)
+                case regexp.MustCompile(`^[0-9]*\.[0-9]*\.[0-9]*`).MatchString(char):
+                    errorMsg = fmt.Sprintf("Error Léxico: Número decimal mal formado '%s' - múltiples puntos decimales", char)
+                default:
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter o secuencia inesperada '%s' en Python", char)
+                }
+            case "javascript":
+                switch {
+                case char == "#":
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter '#' no es válido en JavaScript (use // para comentarios)")
+                case char == "@" && !strings.HasPrefix(code[t.Start:], "@@"):
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter '@' inesperado en JavaScript")
+                case strings.HasPrefix(char, "\"") && !strings.HasSuffix(char, "\""):
+                    errorMsg = fmt.Sprintf("Error Léxico: String no cerrado que comienza con '%s'", char)
+                case strings.HasPrefix(char, "'") && !strings.HasSuffix(char, "'"):
+                    errorMsg = fmt.Sprintf("Error Léxico: String no cerrado que comienza con '%s'", char)
+                case strings.HasPrefix(char, "`") && !strings.HasSuffix(char, "`"):
+                    errorMsg = fmt.Sprintf("Error Léxico: Template literal no cerrado que comienza con '%s'", char)
+                case regexp.MustCompile(`^\d+[a-zA-Z]`).MatchString(char):
+                    errorMsg = fmt.Sprintf("Error Léxico: Número mal formado '%s' - contiene letras", char)
+                default:
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter o secuencia inesperada '%s' en JavaScript", char)
+                }
+            case "cpp":
+                switch {
+                case char == "@":
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter '@' no válido en C++")
+                case char == "$":
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter '$' no es válido en C++")
+                case strings.HasPrefix(char, "\"") && !strings.HasSuffix(char, "\""):
+                    errorMsg = fmt.Sprintf("Error Léxico: String no cerrado que comienza con '%s'", char)
+                case strings.HasPrefix(char, "'") && !strings.HasSuffix(char, "'"):
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter literal no cerrado que comienza con '%s'", char)
+                case regexp.MustCompile(`^\d+[a-zA-Z]`).MatchString(char):
+                    errorMsg = fmt.Sprintf("Error Léxico: Número mal formado '%s' - contiene letras", char)
+                case regexp.MustCompile(`^[0-9]*\.[0-9]*\.[0-9]*`).MatchString(char):
+                    errorMsg = fmt.Sprintf("Error Léxico: Número decimal mal formado '%s' - múltiples puntos decimales", char)
+                default:
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter o secuencia inesperada '%s' en C++", char)
+                }
             default:
-                errorMsg = fmt.Sprintf("Error Léxico: Caracter o secuencia inesperada '%s'", char)
+                switch {
+                case char == "@" || char == "#" && language != "python":
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter '%s' no válido en %s", char, language)
+                case char == "$" && language == "cpp":
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter '$' no es válido en C++")
+                case strings.HasPrefix(char, "\"") && !strings.HasSuffix(char, "\""):
+                    errorMsg = fmt.Sprintf("Error Léxico: String no cerrado que comienza con '%s'", char)
+                case strings.HasPrefix(char, "'") && !strings.HasSuffix(char, "'"):
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter literal no cerrado que comienza con '%s'", char)
+                case regexp.MustCompile(`^\d+[a-zA-Z]`).MatchString(char):
+                    errorMsg = fmt.Sprintf("Error Léxico: Número mal formado '%s' - contiene letras", char)
+                case regexp.MustCompile(`^[0-9]*\.[0-9]*\.[0-9]*`).MatchString(char):
+                    errorMsg = fmt.Sprintf("Error Léxico: Número decimal mal formado '%s' - múltiples puntos decimales", char)
+                default:
+                    errorMsg = fmt.Sprintf("Error Léxico: Caracter o secuencia inesperada '%s'", char)
+                }
             }
             
             lexicalErrors = append(lexicalErrors, CompilerError{
@@ -692,7 +1056,7 @@ func AnalyzeCode(code, language string) AnalyzeResponse {
         }
     }
     
-    // Verificar patrones adicionales en el código fuente
+    // Verificar patrones adicionales en el código fuente específicos por lenguaje
     lines := strings.Split(code, "\n")
     for lineNum, line := range lines {
         // Detectar strings mal cerrados
@@ -708,15 +1072,61 @@ func AnalyzeCode(code, language string) AnalyzeResponse {
             }
         }
         
-        // Detectar comentarios mal formados para C++
-        if language == "cpp" && strings.Contains(line, "/*") && !strings.Contains(line, "*/") {
-            pos := strings.Index(line, "/*")
-            lexicalErrors = append(lexicalErrors, CompilerError{
-                Message:  fmt.Sprintf("Error Léxico: Comentario de bloque no cerrado en línea %d", lineNum+1),
-                Severity: "warning",
-                Type:     "lexico",
-                Pos:      pos,
-            })
+        // Verificaciones específicas por lenguaje
+        switch language {
+        case "cpp":
+            // Detectar comentarios mal formados para C++
+            if strings.Contains(line, "/*") && !strings.Contains(line, "*/") {
+                pos := strings.Index(line, "/*")
+                lexicalErrors = append(lexicalErrors, CompilerError{
+                    Message:  fmt.Sprintf("Error Léxico: Comentario de bloque no cerrado en línea %d", lineNum+1),
+                    Severity: "warning",
+                    Type:     "lexico",
+                    Pos:      pos,
+                })
+            }
+        case "python":
+            // Detectar problemas de indentación mixta (tabs y espacios)
+            if strings.Contains(line, "\t") && strings.Contains(line, "    ") {
+                lexicalErrors = append(lexicalErrors, CompilerError{
+                    Message:  fmt.Sprintf("Error Léxico: Indentación mixta (tabs y espacios) en línea %d", lineNum+1),
+                    Severity: "warning",
+                    Type:     "lexico",
+                    Pos:      0,
+                })
+            }
+            // Detectar strings con comillas triples mal cerradas
+            if strings.Count(line, "\"\"\"")%2 != 0 || strings.Count(line, "'''")%2 != 0 {
+                lexicalErrors = append(lexicalErrors, CompilerError{
+                    Message:  fmt.Sprintf("Error Léxico: String de múltiples líneas no cerrado en línea %d", lineNum+1),
+                    Severity: "error",
+                    Type:     "lexico",
+                    Pos:      0,
+                })
+            }
+        case "javascript":
+            // Detectar template literals mal cerrados
+            if strings.Count(line, "`")%2 != 0 {
+                pos := strings.Index(line, "`")
+                if pos != -1 {
+                    lexicalErrors = append(lexicalErrors, CompilerError{
+                        Message:  fmt.Sprintf("Error Léxico: Template literal no cerrado en línea %d", lineNum+1),
+                        Severity: "error",
+                        Type:     "lexico",
+                        Pos:      pos,
+                    })
+                }
+            }
+            // Detectar comentarios mal formados para JavaScript
+            if strings.Contains(line, "/*") && !strings.Contains(line, "*/") {
+                pos := strings.Index(line, "/*")
+                lexicalErrors = append(lexicalErrors, CompilerError{
+                    Message:  fmt.Sprintf("Error Léxico: Comentario de bloque no cerrado en línea %d", lineNum+1),
+                    Severity: "warning",
+                    Type:     "lexico",
+                    Pos:      pos,
+                })
+            }
         }
     }
     
@@ -741,14 +1151,14 @@ func AnalyzeCode(code, language string) AnalyzeResponse {
     resp.CanExecute = !hasCritical(resp.Errors)
     
     // SIEMPRE ejecutar para capturar errores reales del compilador
-    var exec Executor
+        var exec Executor
     if GlobalConfig.EnableRealExecution { 
         exec = NewRealExecutor(language) 
     } else { 
         exec = NewExecutor(language) 
     }
-    res := exec.Execute(code, syms)
-    resp.ExecutionResult = &res
+        res := exec.Execute(code, syms)
+        resp.ExecutionResult = &res
     
     // SIEMPRE parsear errores reales si existen (independientemente del análisis estático)
     if res.Output != "" {

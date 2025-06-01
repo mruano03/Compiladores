@@ -595,6 +595,8 @@ int main() {
 function calcular() {
     let numero = 123abc;  // Error léxico: número mal formado
     let texto = "Hola mundo;  // Error léxico: string no cerrado
+    let template = \`Plantilla sin cerrar;  // Error léxico: template literal
+    let # = "error";  // Error léxico: caracter # no válido
     
     if (numero > 0 {  // Error sintáctico: paréntesis sin cerrar
         console.log(resultado);  // Error semántico: variable no declarada
@@ -609,7 +611,159 @@ function calcular() {
 calcular(;  // Error sintáctico: paréntesis mal balanceados`,
     language: "javascript",
     description: "Ejemplo que demuestra los tres tipos de errores en JavaScript"
-  }
+  },
+
+  "Errores Léxicos (Python)": {
+    code: `# Ejemplos de errores léxicos en Python
+
+# Error léxico: número mal formado
+numero_malo = 123abc
+
+# Error léxico: string no cerrado
+mensaje = "Hola mundo
+
+# Error léxico: caracter no válido
+variable$ = "error"
+
+# Error léxico: indentación mixta (tabs y espacios)
+def funcion_test():
+    print("con espacios")
+	print("con tab")  # Esta línea usa tab
+
+# Error léxico: string multilínea no cerrado
+texto = """
+Este es un texto
+de múltiples líneas
+sin cerrar correctamente`,
+    language: "python",
+    description: "Ejemplos de errores en la fase de análisis léxico en Python"
+  },
+
+  "Errores Sintácticos (Python)": {
+    code: `# Ejemplos de errores sintácticos en Python
+
+# Error sintáctico: paréntesis no balanceados
+print("Hola"
+print("Mundo")
+
+# Error sintáctico: dos puntos faltantes
+if True
+    print("Error")
+
+# Error sintáctico: indentación incorrecta
+def mi_funcion():
+print("Sin indentación")
+
+# Error sintáctico: paréntesis mal cerrados
+resultado = max(1, 2, 3
+print(resultado)`,
+    language: "python",
+    description: "Ejemplos de errores en la fase de análisis sintáctico en Python"
+  },
+
+  "Errores Semánticos (Python)": {
+    code: `# Ejemplos de errores semánticos en Python
+
+def mi_funcion():
+    edad = 25
+    
+    # Error semántico: variable no declarada
+    print(nombre)
+    
+    # Error semántico: variable declarada pero no utilizada
+    mensaje_no_usado = "Hola"
+    
+    # Error semántico: usar palabra reservada como variable
+    def = "esto es incorrecto"
+    
+    # Error semántico: variable no definida
+    resultado = variable_inexistente * 2
+    
+    return edad
+
+# Error semántico: función definida pero no utilizada
+def funcion_sin_usar():
+    pass`,
+    language: "python",
+    description: "Ejemplos de errores en la fase de análisis semántico en Python"
+  },
+
+  "Errores Léxicos (JavaScript)": {
+    code: `// Ejemplos de errores léxicos en JavaScript
+
+// Error léxico: número mal formado
+let numero = 123abc;
+
+// Error léxico: string no cerrado
+let texto = "Hola mundo;
+
+// Error léxico: template literal no cerrado
+let plantilla = \`Template sin cerrar;
+
+// Error léxico: caracter # no válido
+let # = "error";
+
+// Error léxico: comentario de bloque no cerrado
+/* Este comentario
+   no se cierra correctamente
+
+let variable = "valor";`,
+    language: "javascript",
+    description: "Ejemplos de errores en la fase de análisis léxico en JavaScript"
+  },
+
+  "Errores Sintácticos (JavaScript)": {
+    code: `// Ejemplos de errores sintácticos en JavaScript
+
+// Error sintáctico: paréntesis no balanceados
+console.log("Hola";
+console.log("Mundo");
+
+// Error sintáctico: llaves no balanceadas
+function test() {
+    console.log("test");
+// Falta cerrar llave
+
+// Error sintáctico: punto y coma mal ubicado
+if (true;) {
+    console.log("Error");
+}
+
+// Error sintáctico: corchetes no balanceados
+let array = [1, 2, 3;
+console.log(array);`,
+    language: "javascript",
+    description: "Ejemplos de errores en la fase de análisis sintáctico en JavaScript"
+  },
+
+  "Errores Semánticos (JavaScript)": {
+    code: `// Ejemplos de errores semánticos en JavaScript
+
+function calcular() {
+    let edad = 25;
+    
+    // Error semántico: variable no declarada
+    console.log(nombre);
+    
+    // Error semántico: variable declarada pero no utilizada
+    let mensajeNoUsado = "Hola";
+    
+    // Error semántico: redefinición de variable
+    let edad = 30;
+    
+    // Error semántico: usar palabra reservada como variable
+    let var = "incorrecto";
+    
+    return edad;
+}
+
+// Error semántico: función definida pero no utilizada
+function funcionSinUsar() {
+    return "sin usar";
+}`,
+    language: "javascript",
+    description: "Ejemplos de errores en la fase de análisis semántico en JavaScript"
+  },
 };
 
 const CodeExamples: React.FC<CodeExamplesProps> = ({ onCodeLoad, onLanguageChange }) => {
