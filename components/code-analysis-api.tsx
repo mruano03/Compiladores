@@ -1,9 +1,9 @@
 'use client';
 
+import React, { useCallback, useMemo, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertCircle,
   Info,
-  Check,
   XCircle,
-  FileText,
-  BarChart3,
   Code2,
   Table,
   Play,
@@ -30,21 +27,40 @@ import {
 } from 'lucide-react';
 
 import { useCompilerAnalysis } from '@/hooks/use-compiler-analysis';
-import { useEffect } from 'react';
+
+interface ErrorMarker {
+  startLineNumber: number;
+  startColumn: number;
+  endLineNumber: number;
+  endColumn: number;
+  message: string;
+  severity: number;
+  source: string;
+}
+
+interface AnalysisPhase {
+  completed: boolean;
+  tokensFound?: number;
+  errorsFound?: number;
+  nodesGenerated?: number;
+  symbolsFound?: number;
+}
 
 interface CodeAnalysisAPIProps {
   code: string;
   language: string;
   shouldAnalyze?: boolean;
   onAnalysisComplete?: (canExecute: boolean) => void;
+  onMarkersUpdate?: (markers: ErrorMarker[]) => void;
 }
 
-export default function CodeAnalysisAPI({ 
+const CodeAnalysisAPI = React.memo(({ 
   code, 
   language, 
   shouldAnalyze = false,
-  onAnalysisComplete 
-}: CodeAnalysisAPIProps) {
+  onAnalysisComplete,
+  onMarkersUpdate
+}: CodeAnalysisAPIProps) => {
   
   const { 
     result, 
@@ -70,37 +86,89 @@ export default function CodeAnalysisAPI({
     }
   }, [result, onAnalysisComplete]);
 
-  const getErrorIcon = (type: string) => {
+  // Memoizar el cálculo de marcadores
+  const markers = useMemo(() => {
+    if (result && result.errors) {
+      return result.errors
+        .filter(error => error.line > 0)
+        .map(error => {
+          // Asignar severidad basándose en el tipo de error para colores diferentes
+          let severity: number;
+          switch (error.type) {
+            case 'lexico':
+              // Errores léxicos - Rojo (8 = Error) - Problemas fundamentales de tokens
+              severity = 8;
+              break;
+            case 'sintactico':
+              // Errores sintácticos - Amarillo (4 = Warning) - Problemas de estructura
+              severity = 4;
+              break;
+            case 'semantico':
+              // Errores semánticos - Azul (2 = Info) - Problemas de significado
+              severity = 2;
+              break;
+            default:
+              // Fallback basándose en severidad original
+              severity = error.severity === 'error' ? 8 : error.severity === 'warning' ? 4 : 2;
+          }
+
+          return {
+            startLineNumber: error.line,
+            startColumn: error.column || 1,
+            endLineNumber: error.line,
+            endColumn: (error.column || 1) + Math.max(10, error.message.length / 2),
+            message: `${error.type.toUpperCase()}: ${error.message}`,
+            severity: severity,
+            source: 'compilador'
+          };
+        });
+    }
+    return [];
+  }, [result]);
+
+  // Efecto para enviar marcadores de errores al editor
+  useEffect(() => {
+    if (onMarkersUpdate) {
+      onMarkersUpdate(markers);
+    }
+  }, [markers, onMarkersUpdate]);
+
+  const getErrorIcon = useCallback((type: string) => {
     switch (type) {
       case 'error': return <XCircle className="h-4 w-4 text-red-500" />;
       case 'warning': return <AlertCircle className="h-4 w-4 text-yellow-500" />;
       default: return <Info className="h-4 w-4 text-blue-500" />;
     }
-  };
+  }, []);
 
-  const getErrorBadgeVariant = (type: string) => {
+  const getErrorBadgeVariant = useCallback((type: string) => {
     switch (type) {
       case 'lexico': return 'destructive';
       case 'sintactico': return 'secondary';
       case 'semantico': return 'outline';
       default: return 'default';
     }
-  };
+  }, []);
 
-  const getPhaseIcon = (phase: string) => {
+  const getPhaseIcon = useCallback((phase: string) => {
     switch (phase) {
       case 'lexical': return <Eye className="h-4 w-4" />;
       case 'syntax': return <Code2 className="h-4 w-4" />;
       case 'semantic': return <Brain className="h-4 w-4" />;
       default: return <Zap className="h-4 w-4" />;
     }
-  };
+  }, []);
 
-  const getPhaseProgress = (phase: any) => {
+  const getPhaseProgress = useCallback((phase: AnalysisPhase | undefined) => {
     if (!phase || !phase.completed) return 0;
-    if (phase.errorsFound === 0) return 100;
-    return Math.max(50, 100 - (phase.errorsFound * 10));
-  };
+    if ((phase.errorsFound || 0) === 0) return 100;
+    return Math.max(50, 100 - ((phase.errorsFound || 0) * 10));
+  }, []);
+
+  // Memoizar arrays estáticos
+  const errorTypes = useMemo(() => ['lexico', 'sintactico', 'semantico'], []);
+  const tokenTypes = useMemo(() => ['KEYWORD', 'IDENTIFIER', 'NUMBER', 'STRING', 'OPERATOR', 'DELIMITER'], []);
+  const symbolTypes = useMemo(() => ['function', 'variable', 'class', 'constant'], []);
 
   return (
     <div className="h-full bg-muted/20">
@@ -307,7 +375,7 @@ export default function CodeAnalysisAPI({
                         </div>
                         
                         <div className="space-y-3">
-                          {['lexico', 'sintactico', 'semantico'].map(errorType => {
+                          {errorTypes.map(errorType => {
                             const errorsOfType = result.errors?.filter(e => e.type === errorType) || [];
                             if (errorsOfType.length === 0) return null;
                             
@@ -353,7 +421,7 @@ export default function CodeAnalysisAPI({
                                     };
                                     
                                     return (
-                                      <div key={idx} className={`text-xs rounded p-2 border ${severityStyles[error.severity as keyof typeof severityStyles] || severityStyles.error}`}>
+                                      <div key={`${errorType}-${idx}`} className={`text-xs rounded p-2 border ${severityStyles[error.severity as keyof typeof severityStyles] || severityStyles.error}`}>
                                         <div className="flex items-center gap-2 mb-1">
                                           <span className="font-mono text-xs bg-white dark:bg-gray-900 px-1 rounded border">
                                             L{error.line}:C{error.column}
@@ -429,7 +497,7 @@ export default function CodeAnalysisAPI({
                           <div className="text-xs text-muted-foreground space-y-2">
                             <div className="font-medium text-foreground mb-2">🏷️ Clasificación de Tokens:</div>
                             <div className="grid grid-cols-2 gap-2">
-                              {['KEYWORD', 'IDENTIFIER', 'NUMBER', 'STRING', 'OPERATOR', 'DELIMITER'].map(tokenType => {
+                              {tokenTypes.map(tokenType => {
                                 const count = result.tokens?.filter(t => t.type === tokenType).length || 0;
                                 if (count === 0) return null;
                                 return (
@@ -450,7 +518,7 @@ export default function CodeAnalysisAPI({
                           <div className="text-xs text-muted-foreground space-y-2">
                             <div className="font-medium text-foreground mb-2">🔍 Análisis de Símbolos:</div>
                             <div className="grid grid-cols-2 gap-2">
-                              {['function', 'variable', 'class', 'constant'].map(symbolType => {
+                              {symbolTypes.map(symbolType => {
                                 const count = result.symbolTable?.filter(s => s.category === symbolType).length || 0;
                                 if (count === 0) return null;
                                 return (
@@ -529,7 +597,7 @@ export default function CodeAnalysisAPI({
                 {result?.tokens?.length ? (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {result.tokens?.map((token, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                      <div key={`token-${index}-${token.type}-${token.line}-${token.column}`} className="flex items-center justify-between p-2 bg-muted/50 rounded">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{token.type}</Badge>
                           <code className="text-sm">{token.value}</code>
@@ -565,7 +633,7 @@ export default function CodeAnalysisAPI({
                 {result?.symbolTable?.length ? (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {result.symbolTable?.map((symbol, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                      <div key={`symbol-${index}-${symbol.name}-${symbol.line}`} className="flex items-center justify-between p-2 bg-muted/50 rounded">
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">{symbol.category}</Badge>
                           <span className="font-medium">{symbol.name}</span>
@@ -602,9 +670,9 @@ export default function CodeAnalysisAPI({
               <CardContent>
                 {result?.errors?.length ? (
                   <div className="space-y-4">
-                    {/* Resumen de errores por tipo */}
+                    {/* Resumen general de errores */}
                     <div className="grid grid-cols-3 gap-4 mb-4">
-                      {['lexico', 'sintactico', 'semantico'].map(errorType => {
+                      {errorTypes.map(errorType => {
                         const count = result.errors?.filter(e => e.type === errorType).length || 0;
                         return (
                           <div key={errorType} className={`p-3 rounded border text-center ${
@@ -637,52 +705,177 @@ export default function CodeAnalysisAPI({
                       </div>
                     </div>
 
-                    {/* Lista detallada de errores */}
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {['lexico', 'sintactico', 'semantico'].map(errorType => {
-                        const errorsOfType = result.errors?.filter(e => e.type === errorType) || [];
-                        if (errorsOfType.length === 0) return null;
+                    {/* Tabs para categorías de errores */}
+                    <Tabs defaultValue="lexico" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="lexico" className="text-xs">
+                          <Eye className="h-3 w-3 mr-1" />
+                          Léxicos ({result.errors?.filter(e => e.type === 'lexico').length || 0})
+                        </TabsTrigger>
+                        <TabsTrigger value="sintactico" className="text-xs">
+                          <Code2 className="h-3 w-3 mr-1" />
+                          Sintácticos ({result.errors?.filter(e => e.type === 'sintactico').length || 0})
+                        </TabsTrigger>
+                        <TabsTrigger value="semantico" className="text-xs">
+                          <Brain className="h-3 w-3 mr-1" />
+                          Semánticos ({result.errors?.filter(e => e.type === 'semantico').length || 0})
+                        </TabsTrigger>
+                      </TabsList>
 
-                        return (
-                          <div key={errorType} className="space-y-2">
-                            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b dark:border-gray-700 pb-1">
-                              🔍 Errores {errorType.charAt(0).toUpperCase() + errorType.slice(1)}s ({errorsOfType.length})
-                            </h5>
-                            {errorsOfType.map((error, index) => (
-                              <div key={index} className="flex items-start gap-2 p-3 border dark:border-gray-700 rounded bg-white dark:bg-gray-900/50">
-                                {getErrorIcon(error.severity)}
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Badge variant={getErrorBadgeVariant(error.type) as any} className="text-xs">
-                                      {error.type.toUpperCase()}
-                                    </Badge>
-                                    <Badge variant="outline" className="text-xs">
-                                      {error.severity.toUpperCase()}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      📍 Línea {error.line}, Columna {error.column} (Posición {error.position})
-                                    </span>
-                                  </div>
-                                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">{error.message}</p>
-                                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                                    <strong>Ubicación exacta:</strong> Carácter en posición {error.position} del código fuente
+                      {/* Tab de Errores Léxicos */}
+                      <TabsContent value="lexico" className="mt-4">
+                        <div className="space-y-3">
+                          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded p-3">
+                            <h6 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2 flex items-center gap-2">
+                              <Eye className="h-4 w-4" />
+                              Análisis Léxico
+                            </h6>
+                            <div className="text-xs text-red-700 dark:text-red-300">
+                              Los errores léxicos ocurren cuando el analizador léxico no puede reconocer un token válido. 
+                              Esto incluye caracteres ilegales, strings mal cerrados, números malformados, etc.
+                            </div>
+                          </div>
+                          
+                          {result.errors?.filter(e => e.type === 'lexico').length > 0 ? (
+                            <div className="space-y-2 max-h-80 overflow-y-auto">
+                              {result.errors?.filter(e => e.type === 'lexico').map((error, index) => (
+                                <div key={`lexico-error-${index}`} className="flex items-start gap-2 p-3 border dark:border-gray-700 rounded bg-white dark:bg-gray-900/50">
+                                  {getErrorIcon(error.severity)}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Badge variant="destructive" className="text-xs">
+                                        LÉXICO
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        {error.severity.toUpperCase()}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        📍 Línea {error.line}, Columna {error.column} (Pos: {error.position})
+                                      </span>
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">{error.message}</p>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                                      <strong>Contexto:</strong> El analizador léxico no pudo procesar el carácter o secuencia en la posición {error.position}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-green-600 dark:text-green-400">
+                              <CheckCircle2 className="h-12 w-12 mx-auto mb-3" />
+                              <div className="font-medium">¡Sin errores léxicos!</div>
+                              <div className="text-sm text-muted-foreground">Todos los tokens fueron reconocidos correctamente</div>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
 
-                  
-                  
+                      {/* Tab de Errores Sintácticos */}
+                      <TabsContent value="sintactico" className="mt-4">
+                        <div className="space-y-3">
+                          <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded p-3">
+                            <h6 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2 flex items-center gap-2">
+                              <Code2 className="h-4 w-4" />
+                              Análisis Sintáctico
+                            </h6>
+                            <div className="text-xs text-yellow-700 dark:text-yellow-300">
+                              Los errores sintácticos se producen cuando la secuencia de tokens no respeta la gramática del lenguaje. 
+                              Incluyen paréntesis no balanceados, palabras clave en lugares incorrectos, estructuras incompletas, etc.
+                            </div>
+                          </div>
+                          
+                          {result.errors?.filter(e => e.type === 'sintactico').length > 0 ? (
+                            <div className="space-y-2 max-h-80 overflow-y-auto">
+                              {result.errors?.filter(e => e.type === 'sintactico').map((error, index) => (
+                                <div key={`sintactico-error-${index}`} className="flex items-start gap-2 p-3 border dark:border-gray-700 rounded bg-white dark:bg-gray-900/50">
+                                  {getErrorIcon(error.severity)}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Badge variant="secondary" className="text-xs">
+                                        SINTÁCTICO
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        {error.severity.toUpperCase()}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        📍 Línea {error.line}, Columna {error.column} (Pos: {error.position})
+                                      </span>
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">{error.message}</p>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                                      <strong>Contexto:</strong> La estructura sintáctica no cumple con las reglas gramaticales del lenguaje
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-green-600 dark:text-green-400">
+                              <CheckCircle2 className="h-12 w-12 mx-auto mb-3" />
+                              <div className="font-medium">¡Sin errores sintácticos!</div>
+                              <div className="text-sm text-muted-foreground">La estructura del código es sintácticamente correcta</div>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      {/* Tab de Errores Semánticos */}
+                      <TabsContent value="semantico" className="mt-4">
+                        <div className="space-y-3">
+                          <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded p-3">
+                            <h6 className="text-sm font-medium text-purple-800 dark:text-purple-200 mb-2 flex items-center gap-2">
+                              <Brain className="h-4 w-4" />
+                              Análisis Semántico
+                            </h6>
+                            <div className="text-xs text-purple-700 dark:text-purple-300">
+                              Los errores semánticos se detectan cuando el código es sintácticamente correcto pero carece de sentido semántico. 
+                              Incluyen variables no declaradas, tipos incompatibles, funciones no definidas, violaciones de scope, etc.
+                            </div>
+                          </div>
+                          
+                          {result.errors?.filter(e => e.type === 'semantico').length > 0 ? (
+                            <div className="space-y-2 max-h-80 overflow-y-auto">
+                              {result.errors?.filter(e => e.type === 'semantico').map((error, index) => (
+                                <div key={`semantico-error-${index}`} className="flex items-start gap-2 p-3 border dark:border-gray-700 rounded bg-white dark:bg-gray-900/50">
+                                  {getErrorIcon(error.severity)}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Badge variant="outline" className="text-xs border-purple-500 text-purple-700 dark:text-purple-300">
+                                        SEMÁNTICO
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        {error.severity.toUpperCase()}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        📍 Línea {error.line}, Columna {error.column} (Pos: {error.position})
+                                      </span>
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">{error.message}</p>
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                                      <strong>Contexto:</strong> El significado semántico del código presenta inconsistencias o violaciones de reglas
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-green-600 dark:text-green-400">
+                              <CheckCircle2 className="h-12 w-12 mx-auto mb-3" />
+                              <div className="font-medium">¡Sin errores semánticos!</div>
+                              <div className="text-sm text-muted-foreground">El código tiene un significado semántico correcto</div>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
                   </div>
                 ) : (
                   <div className="text-center py-6 text-green-600 dark:text-green-400">
                     <CheckCircle2 className="h-8 w-8 mx-auto mb-2" />
                     <div className="font-medium">¡No se encontraron errores!</div>
-                
+                    <div className="text-sm text-muted-foreground">El código pasó todas las fases de análisis sin problemas</div>
                   </div>
                 )}
               </CardContent>
@@ -745,7 +938,9 @@ export default function CodeAnalysisAPI({
       </Tabs>
     </div>
   );
-}
+});
+
+CodeAnalysisAPI.displayName = 'CodeAnalysisAPI';
 
 // Componente auxiliar para estadísticas
 function StatCard({ 
@@ -784,4 +979,6 @@ function StatCard({
       {subtitle && <div className={`text-xs ${getTextStyles()} opacity-90`}>{subtitle}</div>}
     </div>
   );
-} 
+}
+
+export default CodeAnalysisAPI; 

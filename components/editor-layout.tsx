@@ -11,13 +11,28 @@ import { defaultCode } from '@/lib/constants';
 import { detectLanguage, getLanguageInfo } from '@/lib/language-detector';
 import { Play, Square } from 'lucide-react';
 
+interface MarkerInfo {
+  startLineNumber: number;
+  startColumn: number;
+  endLineNumber: number;
+  endColumn: number;
+  message: string;
+  severity: number;
+  source: string;
+}
+
+interface LanguageDetectionInfo {
+  detectedLanguage: string;
+  confidence: number;
+}
+
 export default function EditorLayout() {
   const [code, setCode] = useState(defaultCode);
   const [language, setLanguage] = useState('javascript');
   const [theme, setTheme] = useState('vs-dark');
-  const [markers, setMarkers] = useState<any[]>([]);
+  const [markers, setMarkers] = useState<MarkerInfo[]>([]);
   const [currentFile, setCurrentFile] = useState<string | undefined>(undefined);
-  const [languageDetectionInfo, setLanguageDetectionInfo] = useState<any>(null);
+  const [languageDetectionInfo, setLanguageDetectionInfo] = useState<LanguageDetectionInfo | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [shouldAnalyze, setShouldAnalyze] = useState(false);
 
@@ -31,17 +46,17 @@ export default function EditorLayout() {
       'ts': 'javascript',
       'tsx': 'javascript',
       'py': 'python',
-      'cpp': 'C++',
-      'cxx': 'C++',
-      'cc': 'C++',
-      'c': 'C++',
-      'h': 'C++',
-      'hpp': 'C++',
+      'cpp': 'cpp',
+      'cxx': 'cpp',
+      'cc': 'cpp',
+      'c': 'cpp',
+      'h': 'cpp',
+      'hpp': 'cpp',
       'html': 'html',
       'htm': 'html',
-      'sql': 'T-SQL',
-      'pas': 'Pascal',
-      'pascal': 'Pascal',
+      'sql': 'tsql',
+      'pas': 'pascal',
+      'pascal': 'pascal',
       'txt': language // Mantener el lenguaje actual para archivos .txt
     };
 
@@ -62,7 +77,7 @@ export default function EditorLayout() {
       if (
         (detectionInfo.confidence > 5) ||
         (detectionInfo.confidence > 3 && detectedLanguage !== language && detectedLanguage !== 'javascript') ||
-        (detectionInfo.confidence > 2 && ['html', 'sql', 'T-SQL', 'PL/SQL', 'Pascal'].includes(detectedLanguage))
+        (detectionInfo.confidence > 2 && ['html', 'sql', 'tsql', 'plsql', 'pascal'].includes(detectedLanguage))
       ) {
         setLanguage(detectedLanguage);
       }
@@ -74,6 +89,11 @@ export default function EditorLayout() {
     // NO ejecutar análisis automático - solo limpiar marcadores previos
     setMarkers([]);
     setShouldAnalyze(false); // Resetear flag de análisis
+  };
+
+  // Función para manejar actualizaciones de marcadores desde el análisis
+  const handleMarkersUpdate = (newMarkers: MarkerInfo[]) => {
+    setMarkers(newMarkers);
   };
 
   // Nueva función para ejecutar el compilador manualmente
@@ -208,6 +228,8 @@ export default function EditorLayout() {
               onChange={handleCodeChange} 
               language={language}
               theme={theme}
+              markers={markers}
+              onMarkersUpdate={handleMarkersUpdate}
             />
           </div>
         </ResizablePanel>
@@ -217,10 +239,11 @@ export default function EditorLayout() {
             code={code} 
             language={language}
             shouldAnalyze={shouldAnalyze}
-            onAnalysisComplete={(canExecute) => {
+            onAnalysisComplete={(_canExecute) => {
               setIsAnalyzing(false);
               // Aquí podrías agregar lógica adicional cuando el análisis se complete
             }}
+            onMarkersUpdate={handleMarkersUpdate}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useCallback } from 'react';
 import { MoonIcon, SunIcon, Code2, Download, Upload, Settings, Cpu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,6 +8,7 @@ import { useTheme } from 'next-themes';
 import { languages, editorThemes } from '@/lib/constants';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import FileUpload from '@/components/file-upload';
+import CodeExamples from '@/components/code-examples';
 
 interface HeaderProps {
   language: string;
@@ -16,33 +18,41 @@ interface HeaderProps {
   onCodeLoad?: (code: string, fileName?: string) => void;
 }
 
-export default function Header({ 
+const Header = React.memo(({ 
   language, 
   setLanguage, 
   theme, 
   setTheme, 
   onCodeLoad 
-}: HeaderProps) {
+}: HeaderProps) => {
   const { theme: systemTheme, setTheme: setSystemTheme } = useTheme();
 
-  const handleExportCode = () => {
+  const handleExportCode = useCallback(() => {
     // Esta función sería implementada para exportar el código actual
     console.log('Exportar código...');
-  };
+  }, []);
+
+  const handleThemeToggle = useCallback(() => {
+    setSystemTheme(systemTheme === 'dark' ? 'light' : 'dark');
+  }, [systemTheme, setSystemTheme]);
+
+  const handleLanguageChange = useCallback((value: string) => {
+    setLanguage(value);
+  }, [setLanguage]);
 
   return (
-    <header className="border-b border-border h-16 flex items-center justify-between px-4 bg-background">
-      <div className="flex items-center space-x-3">
-        <Cpu className="h-7 w-7 text-primary" />
-        <div>
-          <h1 className="font-bold text-xl text-primary">Compilador</h1>
-          <p className="text-xs text-muted-foreground">Grupo chiludo</p>
+    <TooltipProvider>
+      <header className="border-b border-border h-16 flex items-center justify-between px-4 bg-background">
+        <div className="flex items-center space-x-3">
+          <Cpu className="h-7 w-7 text-primary" />
+          <div>
+            <h1 className="font-bold text-xl text-primary">Compilador</h1>
+            <p className="text-xs text-muted-foreground">Grupo</p>
+          </div>
         </div>
-      </div>
-      
-      <div className="flex items-center space-x-3">
-        <TooltipProvider>
-          <Select value={language} onValueChange={setLanguage}>
+        
+        <div className="flex items-center space-x-3">
+          <Select value={language} onValueChange={handleLanguageChange}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <SelectTrigger className="w-[180px]">
@@ -61,11 +71,17 @@ export default function Header({
               ))}
             </SelectContent>
           </Select>
-        </TooltipProvider>
 
-        <div className="flex space-x-1">
-          {onCodeLoad && (
-            <TooltipProvider>
+          <div className="flex space-x-1">
+            {/* Inyector de ejemplos de código */}
+            {onCodeLoad && (
+              <CodeExamples 
+                onCodeLoad={onCodeLoad}
+                onLanguageChange={setLanguage}
+              />
+            )}
+
+            {onCodeLoad && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -76,10 +92,8 @@ export default function Header({
                   <p>Subir archivo de código</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
-          )}
+            )}
 
-          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" onClick={handleExportCode}>
@@ -90,15 +104,13 @@ export default function Header({
                 <p>Exportar análisis</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
 
-          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => setSystemTheme(systemTheme === 'dark' ? 'light' : 'dark')}
+                  onClick={handleThemeToggle}
                 >
                   <SunIcon className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                   <MoonIcon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -108,9 +120,13 @@ export default function Header({
                 <p>Cambiar tema</p>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </TooltipProvider>
   );
-}
+});
+
+Header.displayName = 'Header';
+
+export default Header;
